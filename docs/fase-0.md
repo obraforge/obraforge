@@ -11,7 +11,7 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | --- | --- | --- |
 | A1 Esqueleto | ✅ camadas 1 e 2 | Clone limpo: `npm ci && npm run build && npm test` verde em Node 22.23.2 e 24.15.0. `npm ls --omit=dev --workspace cli` sem dependência. Vermelhos demonstrados, cada um isolado: caminho errado do `package.json` (ENOENT), área repetida, área com slug inválido. Secret scanning sem alerta: confere-se depois do primeiro push |
 | A2 Comunidade | 🟡 escrito, não publicado | Os dois critérios de pronto (perfil de comunidade pela API e relato de teste no PVR) dependem do push |
-| A3 Controles | 🟡 parcial | Secret scanning, push protection e Private Vulnerability Reporting ligados em 21/09/2026 pela API. O resto (2FA da org, ruleset, Actions) fica para a sessão 2 |
+| A3 Controles | 🟡 parcial | Conferido pela API em 21/09/2026: secret scanning, push protection e PVR ligados; membros não criam repositório; permissão padrão só leitura; pinagem por SHA exigida na org; token padrão do Actions só leitura e Actions sem aprovar PR; aprovação de workflow para contribuidor novo; ruleset de tags `v*` só para admin da org ([ADR-0003](adr/0003-ruleset-de-tags-de-release.md), sem prova de recusa: não há conta sem papel de admin). Faltam: 2FA obrigatório na org (a REST não grava o campo; o dono liga pela interface) e o ruleset da `main`, que depende dos nomes dos checks do primeiro CI |
 | B1 Validador | ✅ camadas 1 e 2 | 137 testes verdes em Node 22.23.2 e 24.15.0. Um caso inválido por regra, cada um acusando **exatamente** o próprio código (os de `LINK` e `DADO-PESSOAL` são montados em tempo de teste, para nenhum CPF ou CNPJ com DV válido entrar no repositório público). `npm run validar` sobre `skills/` sai 0; sobre `invalida-NORMA` sai 1 com arquivo e linha. Vermelho demonstrado desligando `AGENCIA` (21 testes caem), `DADO-PESSOAL` (8) e `LINK` (7), só os da própria regra |
 | B2 Catálogo | ✅ camadas 1 e 2 | 149 testes verdes em Node 22.23.2 e 24.15.0: geração idêntica byte a byte, um byte alterado muda só o hash daquela skill, checkout com `core.autocrlf=true` entrega LF pelo `.gitattributes` (repositório git real no teste). `--verificar` sai 1 com diff quando o arquivo está desatualizado. Vermelho demonstrado trocando a ordenação por bytes pela comparação de string. PRs A, B e C do §10 simulados localmente com a cor esperada em cada comando |
 | C1 CLI mínima | ✅ camadas 1 e 2; camada 3 local | `--version`, `--help`, `list` com `util.parseArgs` e zero dependência. Tarball de `npm pack` com exatamente as 13 entradas da lista branca (teste falha se sobrar ou faltar; vermelho demonstrado vazando `dist/test/`). Instalado do tarball numa pasta vazia: `--version` imprime `0.0.1`, `list` imprime a frase de catálogo vazio. Node 20.20.2 real sai 3 com a versão mínima. Descrição de skill sanitizada antes do terminal (vermelho demonstrado). A camada 3 no npm é o C3 |
@@ -56,8 +56,7 @@ actions de terceiros dos workflows estão autorizadas, com o `osv` rodando a act
 1. Contato do código de conduta e autorização do push (as actions já estão autorizadas).
 2. Depois do push: conferir os nomes reais dos checks e então o A3 (2FA da org com os dois
    métodos do dono conferidos antes, membros sem criar repositório, ruleset da `main` da D-012,
-   Actions com token só leitura). **Proposta nova:** ruleset de tags `v*` restringindo quem cria
-   tag — a guarda 1 do release protege contra engano, não contra quem pode fazer push de tag.
+   Actions com token só leitura). O ruleset de tags `v*` já existe (ADR-0003).
 3. C2 pelo dono; data da `0.0.1` no CHANGELOG; tag `v0.0.1`; PRs de demonstração do §10.
 
 ## Como abrir a sessão 2

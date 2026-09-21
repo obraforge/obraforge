@@ -20,3 +20,4 @@ Decisões* (ChatPRD, v1.1 de 13/09/2026). Onde um ADR divergir de uma decisão D
 | --- | --- | --- |
 | [0001](0001-execucao-em-github-issues-e-projects.md) | Execução em GitHub Issues e Projects | Aceito |
 | [0002](0002-esm-e-build-com-tsc-sem-bundler.md) | ESM e build com `tsc`, sem bundler | Aceito; revoga em parte a D-004 |
+| [0003](0003-ruleset-de-tags-de-release.md) | Ruleset de tags de release | Aceito; complementa a D-012 |
