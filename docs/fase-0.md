@@ -24,11 +24,12 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 ## Pendências do dono
 
-1. **Código de conduta, idioma:** hoje é o Contributor Covenant 3.0 em inglês, porque a tradução
-   oficial em pt-BR só existe para a 2.1. Manter, ou trocar pela 2.1 em pt-BR.
-2. **Código de conduta, contato de aplicação:** o arquivo tem `[CONTATO A DEFINIR PELO DONO]`.
-   Preencher antes do push.
-3. **Revisão dos commits e autorização do push.**
+1. **Código de conduta, contato de aplicação:** o arquivo tem `[CONTATO A DEFINIR PELO DONO]`.
+   O push espera esse contato (decisão de 21/09/2026).
+2. **Revisão dos commits e autorização do push.**
+
+Resolvidas em 21/09/2026: o código de conduta fica no Contributor Covenant 3.0 em inglês; as
+actions de terceiros dos workflows estão autorizadas, com o `osv` rodando a action composta direto.
 
 ## Decisões da sessão 1
 
@@ -52,15 +53,12 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 ## Para destravar o GitHub (checkpoint de 21/09/2026)
 
-1. Autorização do push da `main` e das actions de terceiros (análise nos commits `c5fa2c9` e
-   `fa59090`; o `osv` usa a action composta do Google fora do modo que o mantenedor recomenda, e as
-   imagens Docker do OSV e do Scorecard são puxadas por tag, não por digest).
-2. Código de conduta: idioma e contato.
-3. Depois do push: conferir os nomes reais dos checks e então o A3 (2FA da org com os dois
+1. Contato do código de conduta e autorização do push (as actions já estão autorizadas).
+2. Depois do push: conferir os nomes reais dos checks e então o A3 (2FA da org com os dois
    métodos do dono conferidos antes, membros sem criar repositório, ruleset da `main` da D-012,
    Actions com token só leitura). **Proposta nova:** ruleset de tags `v*` restringindo quem cria
    tag — a guarda 1 do release protege contra engano, não contra quem pode fazer push de tag.
-4. C2 pelo dono; data da `0.0.1` no CHANGELOG; tag `v0.0.1`; PRs de demonstração do §10.
+3. C2 pelo dono; data da `0.0.1` no CHANGELOG; tag `v0.0.1`; PRs de demonstração do §10.
 
 ## Como abrir a sessão 2
 
