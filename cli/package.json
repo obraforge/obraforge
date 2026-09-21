@@ -25,6 +25,6 @@
   "scripts": {
     "prepack": "node scripts/prepack.mjs",
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test \"dist/test/**/*.test.js\""
+    "test": "npm run build && node --test --test-concurrency=1 \"dist/test/**/*.test.js\""
   }
 }
