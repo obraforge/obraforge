@@ -17,7 +17,7 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | C1 CLI mínima | ✅ camadas 1 e 2; camada 3 local | `--version`, `--help`, `list` com `util.parseArgs` e zero dependência. Tarball de `npm pack` com exatamente as 13 entradas da lista branca (teste falha se sobrar ou faltar; vermelho demonstrado vazando `dist/test/`). Instalado do tarball numa pasta vazia: `--version` imprime `0.0.1`, `list` imprime a frase de catálogo vazio. Node 20.20.2 real sai 3 com a versão mínima. Descrição de skill sanitizada antes do terminal (vermelho demonstrado). A camada 3 no npm é o C3 |
 | D1 CI | ✅ camadas 1 a 3 | Primeira execução no GitHub (push de 21/09/2026) verde nos seis checks: `validar`, `catalogo`, `testes (22)`, `testes (24)`, `build`, `osv` — os nomes que o ruleset exige |
 | D2 Segurança contínua | ✅ camadas 1 a 3 | CodeQL sem alerta. Scorecard publicado sobre `415f132` (21/09/2026): **10 nos cinco checks** (`Dangerous-Workflow`, `Token-Permissions`, `Pinned-Dependencies`, `Security-Policy`, `License`) depois do PR #2, que desceu a permissão do CodeQL para o job ([ADR-0005](adr/0005-token-permissions-deu-10.md) corrige a premissa do ADR-0004). Linha de base da nota geral: 6.9; `Branch-Protection` 4 (teto 8 pela D-012), e `Code-Review`, `Maintained`, `CII-Best-Practices` e `Fuzzing` abertos — dependem de histórico, de mais mantenedores ou estão fora do escopo da fase 0. Dependabot ativo: o PR #1 (subir `@types/node` para 26) foi fechado com resposta, e o `dependabot.yml` passou a ignorar major desse pacote |
-| C2 Publicação inicial | ⬜ dono | Passos no §7 do plano |
+| C2 Publicação inicial | ✅ camadas 2 e 3 | Feito pelo dono em 21/09/2026 com npm 11.19.1 e conta pessoal com 2FA: `npm view obraforge versions` → só `0.0.0`, depreciada ("Reserva de nome; use a versão mais recente."); `npm trust list obraforge` → `github`, `release.yml`, `obraforge/obraforge`, permissão de publish; publishing access em "Require two-factor authentication and disallow tokens"; `gh secret list` vazio. Organização `obraforge` criada no npm, dentro da conta pessoal, reservando o escopo `@obraforge` |
 | C3 Release | 🟡 escrito e verificado localmente | Guardas com verde e vermelho testados (inclusive simulando as linhas `run:` do workflow num repositório git temporário); actionlint sem achados. Falta C2, a data da `0.0.1` no CHANGELOG e a tag |
 
 **Push:** a `main` foi enviada em 21/09/2026 com autorização do dono; daqui em diante toda mudança entra por PR (D-012).
@@ -32,14 +32,13 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | 4 | PR C (catálogo não regenerado) → vermelho só no `catalogo`, com o diff | ✅ | [#6](https://github.com/obraforge/obraforge/pull/6): `catalog.json desatualizado`, diff de `"skills": []` |
 | 5 | Os três fechados sem merge, links aqui | ✅ | Acima |
 | 6 | Push direto em `main` recusado | ✅ | `GH013: Changes must be made through a pull request`, vindo do admin |
-| 7 | Tag `v0.0.1` publica; `npx obraforge@0.0.1 --version` imprime `0.0.1`; provenance; SBOM na release | ⬜ | Depende do C2 e da data da `0.0.1` no CHANGELOG |
+| 7 | Tag `v0.0.1` publica; `npx obraforge@0.0.1 --version` imprime `0.0.1`; provenance; SBOM na release | ⬜ | C2 feito; data da `0.0.1` no CHANGELOG neste PR; a tag vem depois do merge |
 | 8 | Tag de versão divergente recusada antes de publicar | ⬜ | Depois do C2 |
 | 9 | `gh secret list` vazio; Scorecard com 10 nos cinco checks do D2 | ✅ | Segredos: nenhum. Scorecard sobre `415f132`: 10 nos cinco |
 
 ## Pendências do dono
 
 1. **2FA obrigatório na org**, pela interface (Settings → Authentication security).
-2. **C2** no npm, pelo roteiro conferido na doc do npm.
 
 Resolvidas em 21/09/2026: o código de conduta fica no Contributor Covenant 3.0 em inglês, com
 contato `obraforge+contato@gmail.com` (caixa dedicada do projeto, fora do login de GitHub e npm);
