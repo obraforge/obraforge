@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    name: validar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Validar skills
+        run: npm run validar
+
+  catalogo:
+    name: catalogo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Conferir catalog.json
+        run: npm run catalogo -- --verificar
+
+  testes:
+    name: testes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['22', '24']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Build e testes (o teste do cli já faz npm pack + instalação do tarball)
+        run: npm run build && npm test
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Conferir o conteúdo do pacote (dry-run)
+        run: npm pack --dry-run --workspace cli
+
+  osv:
+    name: osv
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: OSV-Scanner
+        # Ação composta oficial do Google, usada diretamente (em vez das workflows reusáveis do
+        # mesmo repositório), para o check do ruleset ter um nome simples e estável ("osv"). A
+        # workflow reusável roda como job de reusable-workflow-call e o check aparece composto
+        # ("osv / osv-scan"); mesmo com upload-sarif: false ela ainda declara security-events:
+        # write no próprio job. Rodando o scanner direto, sem SARIF nem upload, o job só precisa
+        # de contents: read (do checkout) e falha sozinho (exit code do osv-scanner) quando
+        # encontra vulnerabilidade — ver relatório para a análise completa e a ressalva do
+        # próprio mantenedor sobre usar esta ação fora da workflow reusável.
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        env:
+          GOTOOLCHAIN: auto
+        with:
+          scan-args: |-
+            -L
+            package-lock.json

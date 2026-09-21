@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Raiz do monorepo: workspaces npm (cli/ e tools/) compartilham o único package-lock.json na
+  # raiz, então uma entrada aqui cobre as duas pastas.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Mantém os SHAs das actions em .github/workflows/ em dia.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
