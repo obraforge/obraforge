@@ -4,3 +4,9 @@ dist/
 .env
 .env.*
 .DS_Store
+
+# Cópias que cli/scripts/prepack.mjs faz da raiz para dentro de cli/ antes do npm pack/publish.
+cli/catalog.json
+cli/skills/
+cli/README.md
+cli/LICENSE

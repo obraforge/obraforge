@@ -14,7 +14,8 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | A3 Controles | 🟡 parcial | Secret scanning, push protection e Private Vulnerability Reporting ligados em 21/09/2026 pela API. O resto (2FA da org, ruleset, Actions) fica para a sessão 2 |
 | B1 Validador | ✅ camadas 1 e 2 | 137 testes verdes em Node 22.23.2 e 24.15.0. Um caso inválido por regra, cada um acusando **exatamente** o próprio código (os de `LINK` e `DADO-PESSOAL` são montados em tempo de teste, para nenhum CPF ou CNPJ com DV válido entrar no repositório público). `npm run validar` sobre `skills/` sai 0; sobre `invalida-NORMA` sai 1 com arquivo e linha. Vermelho demonstrado desligando `AGENCIA` (21 testes caem), `DADO-PESSOAL` (8) e `LINK` (7), só os da própria regra |
 | B2 Catálogo | ✅ camadas 1 e 2 | 149 testes verdes em Node 22.23.2 e 24.15.0: geração idêntica byte a byte, um byte alterado muda só o hash daquela skill, checkout com `core.autocrlf=true` entrega LF pelo `.gitattributes` (repositório git real no teste). `--verificar` sai 1 com diff quando o arquivo está desatualizado. Vermelho demonstrado trocando a ordenação por bytes pela comparação de string. PRs A, B e C do §10 simulados localmente com a cor esperada em cada comando |
-| C1, C2, C3, D1, D2 | ⬜ | Sessão 2 |
+| C1 CLI mínima | ✅ camadas 1 e 2; camada 3 local | `--version`, `--help`, `list` com `util.parseArgs` e zero dependência. Tarball de `npm pack` com exatamente as 13 entradas da lista branca (teste falha se sobrar ou faltar; vermelho demonstrado vazando `dist/test/`). Instalado do tarball numa pasta vazia: `--version` imprime `0.0.1`, `list` imprime a frase de catálogo vazio. Node 20.20.2 real sai 3 com a versão mínima. Descrição de skill sanitizada antes do terminal (vermelho demonstrado). A camada 3 no npm é o C3 |
+| C2, C3, D1, D2 | ⬜ | Sessão 2 |
 
 **Push:** os commits da fase 0 ficam locais até o dono revisar e autorizar (decisão de 21/09/2026).
 
@@ -38,8 +39,6 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 ## Notas para as próximas fatias
 
-- **C1:** os testes compilam para `dist/test/`, então a lista branca do campo `files` é
-  `dist/src/`, não `dist/`. O teste do `npm pack --dry-run` do C1 confere.
 - **B1, limitação conhecida:** arquivo binário (byte NUL nos primeiros 8 KB, como um `.xlsx`) não
   é escaneado por `AGENCIA` nem `DADO-PESSOAL`. Decidir na fase 1, antes da primeira skill com
   fixture de planilha.
@@ -52,10 +51,9 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 - Itens C1, D1, A3, D2, C2, C3 e o teste do §10, na ordem do §14 do plano, com a calibração de
   lá (Opus em high para A3, C3 e o gate do §10).
-- **C1 decide o empacotamento:** o `catalog.json` e as skills ficam na raiz do repositório, mas o
-  `npm pack` do workspace `cli` só leva o que está em `cli/`. A lista branca do C1 (`dist/src/`,
-  `catalog.json`, `skills/`, `README.md`, `LICENSE`) precisa de um passo que copie esses arquivos
-  para dentro de `cli/` antes do pack.
+- **Empacotamento (resolvido no C1):** `cli/scripts/prepack.mjs` copia `catalog.json`, `skills/`,
+  `README.md` e `LICENSE` da raiz para `cli/` antes de `npm pack`/`npm publish`, e falha se achar
+  link simbólico em `skills/`.
 - O C2 é do dono: o agente guia e nunca vê credencial do npm. Exige npm 11.15.0 ou superior
   (local hoje: 11.12.1; o npm 12 já existe, conferir antes de atualizar).
 - Passar pela classificação de superfície de risco antes de cada fatia.
