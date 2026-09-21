@@ -12,8 +12,8 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | A1 Esqueleto | ✅ camadas 1 e 2 | Clone limpo: `npm ci && npm run build && npm test` verde em Node 22.23.2 e 24.15.0. `npm ls --omit=dev --workspace cli` sem dependência. Vermelhos demonstrados, cada um isolado: caminho errado do `package.json` (ENOENT), área repetida, área com slug inválido. Secret scanning sem alerta: confere-se depois do primeiro push |
 | A2 Comunidade | 🟡 escrito, não publicado | Os dois critérios de pronto (perfil de comunidade pela API e relato de teste no PVR) dependem do push |
 | A3 Controles | 🟡 parcial | Secret scanning, push protection e Private Vulnerability Reporting ligados em 21/09/2026 pela API. O resto (2FA da org, ruleset, Actions) fica para a sessão 2 |
-| B1 Validador | ⬜ | Próximo: bloco 1b |
-| B2 Catálogo | ⬜ | Próximo: bloco 1b |
+| B1 Validador | ✅ camadas 1 e 2 | 137 testes verdes em Node 22.23.2 e 24.15.0. Um caso inválido por regra, cada um acusando **exatamente** o próprio código (os de `LINK` e `DADO-PESSOAL` são montados em tempo de teste, para nenhum CPF ou CNPJ com DV válido entrar no repositório público). `npm run validar` sobre `skills/` sai 0; sobre `invalida-NORMA` sai 1 com arquivo e linha. Vermelho demonstrado desligando `AGENCIA` (21 testes caem), `DADO-PESSOAL` (8) e `LINK` (7), só os da própria regra |
+| B2 Catálogo | ⬜ | Próximo |
 | C1, C2, C3, D1, D2 | ⬜ | Sessão 2 |
 
 **Push:** os commits da fase 0 ficam locais até o dono revisar e autorizar (decisão de 21/09/2026).
@@ -40,17 +40,17 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 - **C1:** os testes compilam para `dist/test/`, então a lista branca do campo `files` é
   `dist/src/`, não `dist/`. O teste do `npm pack --dry-run` do C1 confere.
-- **B1:** a lista de áreas em `tools/src/areas.ts` veio da §5 de *Base Técnica · Visão e
-  Decisões*. Conferir contra a §9 e a §13 de *Catálogo · Skills — Spec* antes de usar no validador.
+- **B1, limitação conhecida:** arquivo binário (byte NUL nos primeiros 8 KB, como um `.xlsx`) não
+  é escaneado por `AGENCIA` nem `DADO-PESSOAL`. Decidir na fase 1, antes da primeira skill com
+  fixture de planilha.
+- **B1, CNPJ alfanumérico:** implementado com a fonte citada no código (Receita Federal e Serpro),
+  consultada pelo agente que escreveu a regra e não reconferida na revisão.
 - Fora de um terminal, o `node --test` imprime TAP no Node 22 (`# pass`) e o formato spec no
   Node 24 (`ℹ pass`). Quem filtrar a saída precisa considerar os dois.
 
-## Como abrir o bloco 1b (B1 e B2)
+## Como abrir o B2
 
-- Sessão nova, **Opus em high**, ~1,5–3 h.
-- Ler o §6 do plano (B1 e B2), este arquivo e o [`AGENTS.md`](../AGENTS.md).
-- Specs no ChatPRD, projeto Obraforge: *Catálogo · Skills — Spec* (§9 e §13) e
-  *Base Técnica · Segurança — Spec* (§3). Os documentos são grandes; extrair só o campo `content`.
-- Decisões que abrem o B1: o texto exato do aviso-padrão (template em `docs/template-skill/`) e a
-  lista inicial de padrões da regra `AGENCIA`.
+- Sonnet em high, ~30–60 min.
+- Ler o §6 do plano (B2), este arquivo e o [`AGENTS.md`](../AGENTS.md). O B2 reaproveita a leitura
+  de frontmatter e de `normas.md` do validador (`tools/src/`).
 - Passar pela classificação de superfície de risco antes de cada fatia.

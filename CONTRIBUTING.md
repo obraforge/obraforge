@@ -88,10 +88,15 @@ Antes de abrir o PR, rode localmente:
 npm ci && npm run build && npm test
 ```
 
-Os comandos abaixo aplicam as regras do validador e do catálogo; **estão em construção na fase 0** e passam a valer assim que os itens B1 e B2 do plano de fundação forem entregues:
+O validador aplica as regras acima sobre `skills/`:
 
 ```
 npm run validar
+```
+
+A conferência do catálogo **está em construção na fase 0** e passa a valer quando o item B2 do plano de fundação for entregue:
+
+```
 npm run catalogo -- --verificar
 ```
 

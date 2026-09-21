@@ -31,5 +31,5 @@ metadata:
 - Sem hook, sem permissão de agente, sem rede, e sem pasta `scripts/` antes da fase 3.
 - Norma paga não é transcrita: `normas.md` indica onde adquirir.
 
-O validador (`npm run validar`, em construção na fase 0) recusa no CI a skill que não segue este
+O validador (`npm run validar`) recusa a skill que não segue este
 formato. **Na fase 0 esta pasta não tem nenhuma skill.** Como propor uma: [CONTRIBUTING.md](../CONTRIBUTING.md).

@@ -67,14 +67,19 @@ Detalhe completo das regras do validador em [`CONTRIBUTING.md`](./CONTRIBUTING.m
 npm ci && npm run build && npm test
 ```
 
-Os comandos abaixo dependem dos itens B1 (validador) e B2 (gerador de catálogo) do plano da fase 0 e **ainda não estão implementados**:
+O validador de skill (item B1 do plano da fase 0) roda sobre `skills/`:
 
 ```
 npm run validar
+```
+
+O comando abaixo depende do item B2 (gerador de catálogo) e **ainda não está implementado**:
+
+```
 npm run catalogo -- --verificar
 ```
 
-Antes de declarar uma fatia pronta, rode o recorte afetado; a suíte completa (`npm run build && npm test`, mais `validar` e `catalogo -- --verificar` quando existirem) roda ao fechar cada fatia commitável.
+Antes de declarar uma fatia pronta, rode o recorte afetado; a suíte completa (`npm run build && npm test`, mais `validar` e, quando existir, `catalogo -- --verificar`) roda ao fechar cada fatia commitável.
 
 ## Convenção de idioma
 
