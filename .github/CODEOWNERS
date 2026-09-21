@@ -1,0 +1,22 @@
+# CODEOWNERS — obraforge
+#
+# Designa revisor(es) obrigatório(s) por caminho. O GitHub exige a aprovação de
+# um code owner quando o ruleset da branch pede "Require review from Code
+# Owners"; CODEOWNERS por si só não define QUANTIDADE de revisores, só QUEM
+# precisa revisar.
+
+# Configuração de CI/CD e o workspace interno (@obraforge/tools) exigem
+# revisão do dono do repositório.
+/.github/**  @lucasmpantoja
+/tools/**    @lucasmpantoja
+
+# skills/**/scripts/ é proibido até a fase 3 (ver AGENTS.md e CONTRIBUTING.md).
+# A regra de negócio exige DUAS aprovações de mantenedor mais a revisão de
+# domínio para qualquer skill com scripts/ — mas o CODEOWNERS do GitHub não
+# tem como impor um número de revisores, só designar quem é dono do caminho.
+# Esta linha é a designação mínima (o dono do repositório) e fica DORMENTE:
+# sem efeito prático até a fase 3, porque scripts/ não pode existir antes
+# disso (o validador recusa o PR pela regra SCRIPTS). Quando a fase 3 chegar,
+# a exigência das duas aprovações precisa de um processo além deste arquivo
+# (ex.: regra do ruleset ou revisão manual registrada).
+/skills/**/scripts/  @lucasmpantoja
