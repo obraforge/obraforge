@@ -20,8 +20,10 @@ export function checkLinks(entries: readonly Entry[]): Finding[] {
 }
 
 // Caractere invisível, de controle, de formatação ou bidirecional no nome esconde o que o arquivo
-// é: "y.sh" seguido de U+200B não tem a extensão .sh que a regra SCRIPTS procura.
-const INVISIBLE_IN_NAME = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/u;
+// é: "y.sh" seguido de U+200B não tem a extensão .sh que a regra SCRIPTS procura. Espaço que não é
+// o ASCII (\p{Zs} menos U+0020: U+00A0, U+202F, U+3000...) parece espaço comum e entra no mesmo
+// grupo.
+const INVISIBLE_IN_NAME = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]|(?! )\p{Zs}/u;
 
 // `entries`: conteúdo da pasta da skill, com caminho relativo a ela.
 export function checkStructure(skillDir: string, entries: ReadonlyMap<string, Entry>): Finding[] {

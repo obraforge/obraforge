@@ -26,16 +26,21 @@ const LAW_LIST_ITEM = `${NUMBER}(?:\\/\\d{2,4})?`;
 // do conselho" não virar citação.
 const ORG = '([A-Za-z][A-Za-z0-9]{2,}(?:\\/[A-Za-z]+)?)';
 const RESOLUTION_KEYWORD = '[Rr][Ee][Ss][Oo][Ll][Uu][ÇçCc][ÃãAa][Oo]';
-// Sinal de número obrigatório em Resolução: "nº", "n.º", "n°", "no." ou "n.". Sem ele, a palavra
-// seguinte a "resolução" ("resolução nominal 1920 px") ou a que vem depois de "do/da" ("resolução
-// 2 da equipe") era lida como órgão. "no" sem ponto não vale: é a preposição.
+// Sinal de número de Resolução: "nº", "n.º", "n°", "no." ou "n.". Com órgão em caixa mista ou
+// minúscula ele é obrigatório: sem ele, a palavra seguinte a "resolução" ("resolução nominal 1920
+// px") ou a que vem depois de "do/da" ("resolução 2 da equipe") era lida como órgão. "no" sem
+// ponto não vale: é a preposição.
 const RESOLUTION_NUMERO_SIGN = '[nN](?:\\.?\\s?[º°]|[oO]\\.|\\.)\\s*';
+// Sigla só com maiúsculas (2 ou mais letras, com barra interna, como "CAU/BR"): dispensa o sinal de
+// número ("Resolução CONAMA 307/2002", "Resolução 273/2000 do CONAMA").
+const UPPERCASE_ORG = '([A-Z]{2,}(?:\\/[A-Z]+)?)';
 
 // NR e NBR só em maiúsculas (evita "nr 12" como abreviação de número). Lei e Decreto sem
 // diferenciar maiúsculas; a borda antes deles exclui o hífen, para "Decreto-Lei" não ser lido
-// também como "Lei". Em Resolução, a palavra aceita qualquer caixa e a sigla do órgão também
-// (CONAMA, CONFEA, CAU/BR, em qualquer caixa), antes ("Resolução CONAMA nº...") ou depois
-// ("Resolução nº... do CONAMA") do número, mas só nas duas formas ancoradas no sinal de número.
+// também como "Lei". Em Resolução, a palavra aceita qualquer caixa, e o órgão vem antes
+// ("Resolução CONAMA nº...") ou depois ("Resolução nº... do CONAMA") do número: com o sinal de
+// número, o órgão aceita qualquer caixa (CONAMA, Conama, CAU/BR); sem o sinal, só a sigla toda em
+// maiúsculas vale.
 const NR = new RegExp(`${BEFORE}NR\\s?[-–]?\\s?(\\d{1,2})(?!\\d)`, 'gu');
 // "ABNT " é prefixo opcional; NBR aceita espaço ou hífen antes do número ("NBR-6118", "NBR 6118",
 // "NBR9050").
@@ -48,9 +53,17 @@ const LAW = new RegExp(
 // por número da lista, todas com a família "Lei".
 const LAW_LIST = new RegExp(`${BEFORE}[Ll]eis\\s+${LAW_LIST_ITEM}(?:\\s*,\\s*${LAW_LIST_ITEM})*\\s+e\\s+${LAW_LIST_ITEM}`, 'gu');
 const LAW_LIST_ITEM_PATTERN = new RegExp(LAW_LIST_ITEM, 'gu');
-const RESOLUTION_ORG_FIRST = new RegExp(`${BEFORE}${RESOLUTION_KEYWORD}\\s+${ORG}\\s+${RESOLUTION_NUMERO_SIGN}${NUMBER}`, 'gu');
+// Grupos: 1 = sigla em maiúsculas (sinal opcional), 2 = órgão em qualquer caixa (sinal
+// obrigatório), 3 = número.
+const RESOLUTION_ORG_FIRST = new RegExp(
+  `${BEFORE}${RESOLUTION_KEYWORD}\\s+(?:${UPPERCASE_ORG}\\s+(?:${RESOLUTION_NUMERO_SIGN})?|${ORG}\\s+${RESOLUTION_NUMERO_SIGN})${NUMBER}`,
+  'gu',
+);
+// Grupos: 1 = número e 2 = órgão em qualquer caixa (com sinal); 3 = número e 4 = sigla em
+// maiúsculas (sem sinal), que termina em borda de palavra ("do CONAMAx" não vale).
 const RESOLUTION_NUMBER_FIRST = new RegExp(
-  `${BEFORE}${RESOLUTION_KEYWORD}\\s+${RESOLUTION_NUMERO_SIGN}${NUMBER}(?:\\/\\d+)?\\s+(?:do|da)\\s+${ORG}`,
+  `${BEFORE}${RESOLUTION_KEYWORD}\\s+(?:${RESOLUTION_NUMERO_SIGN}${NUMBER}(?:\\/\\d+)?\\s+(?:do|da)\\s+${ORG}|` +
+    `${NUMBER}(?:\\/\\d+)?\\s+(?:do|da)\\s+${UPPERCASE_ORG}(?![\\p{L}\\p{N}_]))`,
   'gu',
 );
 
@@ -91,10 +104,12 @@ export function extractCitations(lines: readonly string[]): Citation[] {
       }
     }
     for (const match of text.matchAll(RESOLUTION_ORG_FIRST)) {
-      citations.push({ key: `Resolução ${(match[1] ?? '').toUpperCase()} ${canonicalNumber(match[2] ?? '')}`, line });
+      const org = match[1] ?? match[2] ?? '';
+      citations.push({ key: `Resolução ${org.toUpperCase()} ${canonicalNumber(match[3] ?? '')}`, line });
     }
     for (const match of text.matchAll(RESOLUTION_NUMBER_FIRST)) {
-      citations.push({ key: `Resolução ${(match[2] ?? '').toUpperCase()} ${canonicalNumber(match[1] ?? '')}`, line });
+      const org = match[2] ?? match[4] ?? '';
+      citations.push({ key: `Resolução ${org.toUpperCase()} ${canonicalNumber(match[1] ?? match[3] ?? '')}`, line });
     }
   });
   return citations;

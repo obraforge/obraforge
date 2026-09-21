@@ -1,6 +1,7 @@
 import { constants } from 'node:fs';
 import { lstat, open, readdir, type FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
+import { skeleton } from './text.js';
 
 export type EntryKind = 'file' | 'dir' | 'symlink' | 'other';
 
@@ -37,10 +38,11 @@ export async function walkTree(root: string): Promise<Entry[]> {
 }
 
 // Extensão em minúsculas do último segmento do caminho, com o ponto (".sh"); "" quando não há.
-// Ponto e espaço no fim do nome saem antes, porque o Windows os descarta ("rodar.sh." vira
-// "rodar.sh").
+// É calculada sobre o esqueleto do nome (text.ts, que inclui o NFKC), para o homóglifo não
+// esconder a extensão: "rodar.ѕh" (U+0455) e "rodar.ｓｈ" têm a extensão ".sh". Ponto e espaço no
+// fim do nome saem antes, porque o Windows os descarta ("rodar.sh." vira "rodar.sh").
 export function extensionOf(path: string): string {
-  const name = (path.split('/').at(-1) ?? '').replace(/[. ]+$/, '');
+  const name = skeleton(path.split('/').at(-1) ?? '').replace(/[. ]+$/, '');
   const dot = name.lastIndexOf('.');
   return dot === -1 ? '' : name.slice(dot).toLowerCase();
 }

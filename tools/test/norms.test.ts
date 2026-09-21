@@ -50,6 +50,25 @@ test('cada família de norma vira uma chave canônica', () => {
   }
 });
 
+// Sigla só com maiúsculas (2 ou mais letras, com barra interna, como CAU/BR) dispensa o sinal de
+// número, com o órgão antes ou depois do número.
+test('resolução com sigla em maiúsculas e sem sinal de número vira citação', () => {
+  const cases: Array<[string, string[]]> = [
+    ['Resolução CONAMA 307/2002', ['Resolução CONAMA 307']],
+    ['Siga a Resolução CONAMA 307/2002 na triagem do entulho.', ['Resolução CONAMA 307']],
+    ['Resolução CAU/BR 91/2014', ['Resolução CAU/BR 91']],
+    ['Resolucao CONFEA 1.025/2009', ['Resolução CONFEA 1025']],
+    ['RESOLUÇÃO CONAMA 307', ['Resolução CONAMA 307']],
+    ['Resolução CD 5/2019', ['Resolução CD 5']],
+    ['Resolução 273/2000 do CONAMA', ['Resolução CONAMA 273']],
+    ['Resolução 91/2014 do CAU/BR', ['Resolução CAU/BR 91']],
+    ['Resolução 1.025 do CONFEA.', ['Resolução CONFEA 1025']],
+  ];
+  for (const [text, expected] of cases) {
+    assert.deepEqual(keys(text), expected, text);
+  }
+});
+
 test('texto que não é citação não vira chave', () => {
   for (const text of ['NRs da obra', 'nr 12 itens', 'a resolução de 2019 do conselho', 'webNR-18x', 'NR-100', 'Leis 8', 'nbr 9050']) {
     assert.deepEqual(keys(text), [], text);
@@ -64,8 +83,16 @@ for (const text of [
   'resolução da equipe 2',
   'resolução espacial 30 m do sensor',
   'a resolução 2 da equipe técnica',
-  'Resolucao CONFEA 1.025/2009',
   'Resolução no 307/2002 do CONAMA',
+  // Órgão em caixa mista ou minúscula continua exigindo o sinal de número.
+  'Resolução Conama 307/2002',
+  'Resolução conama 307/2002',
+  'Resolução 307/2002 do Conama',
+  'Resolução 307/2002 do conama',
+  'Resolução CONAMAx 307',
+  'Resolução 307 do CONAMAx',
+  // Sigla de uma letra só não é sigla.
+  'Resolução A 307',
 ]) {
   test(`resolução sem sinal de número não vira citação: ${text}`, () => {
     assert.deepEqual(keys(text), []);
@@ -76,7 +103,18 @@ test('extractCitations com resolução sem sinal de número roda em tempo linear
   const chunk = `Resolução ${'n'.repeat(40)} 1.2.3.4.5.6.7.8.9 do ${'x'.repeat(40)} resolução nº 1 da resolução no ${'1.'.repeat(30)} `;
   const repeated = chunk.repeat(Math.ceil((200 * 1024) / chunk.length));
   // Sigla gigante sem sinal de número depois, e número gigante sem "do/da" depois.
-  for (const text of [repeated, `Resolução ${'A'.repeat(205_000)} 1`, `Resolução nº ${'1.'.repeat(103_000)}x`]) {
+  for (const text of [
+    repeated,
+    `Resolução ${'A'.repeat(205_000)} 1`,
+    `Resolução nº ${'1.'.repeat(103_000)}x`,
+    // Sigla gigante que não termina em espaço, número gigante sem órgão, e órgão gigante depois do
+    // número que falha a borda no fim: formas sem sinal de número.
+    `Resolução ${'A'.repeat(205_000)}x 1`,
+    `Resolução ${'1.'.repeat(103_000)}x`,
+    `Resolução 1 do ${'A'.repeat(205_000)}x`,
+    `Resolução ${'A/'.repeat(103_000)}`,
+    'Resolução CONAMA '.repeat(13_000),
+  ]) {
     const start = process.hrtime.bigint();
     extractCitations([text]);
     const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
@@ -135,14 +173,21 @@ test('NORMA: todas as formas novas de citação do corpo casam com entradas em n
   assert.deepEqual(checkNorms('skills/area/exemplo', skillLines, normsLines), []);
 });
 
-// Consequência do sinal de número obrigatório: o heading sem ele não gera chave, e a citação do
-// corpo é acusada (fail-closed), em vez de a entrada valer para qualquer frase.
-test('NORMA: heading de Resolução sem sinal de número não cobre a citação do corpo', () => {
-  const normsLines = ['## Resolução CONAMA 307', '- Título: Título de teste', '- Ano: 2002', '- Fonte: https://exemplo.gov.br'];
+// Consequência do sinal de número obrigatório para órgão em caixa mista: o heading sem ele não gera
+// chave, e a citação do corpo é acusada (fail-closed), em vez de a entrada valer para qualquer frase.
+test('NORMA: heading de Resolução com órgão em caixa mista e sem sinal de número não cobre a citação do corpo', () => {
+  const normsLines = ['## Resolução Conama 307', '- Título: Título de teste', '- Ano: 2002', '- Fonte: https://exemplo.gov.br'];
   assert.deepEqual(
     checkNorms('skills/area/exemplo', ['Resolução CONAMA nº 307/2002.'], normsLines).map((finding) => finding.message),
     ['citação "Resolução CONAMA 307" sem entrada em references/normas.md'],
   );
+});
+
+// Com a sigla em maiúsculas, o heading sem sinal gera a mesma chave da citação com sinal.
+test('NORMA: heading "Resolução CONAMA 307/2002" cobre "Resolução CONAMA nº 307/2002" e "Resolução 307/2002 do CONAMA"', () => {
+  const normsLines = ['## Resolução CONAMA 307/2002', '- Título: Gestão dos resíduos da construção civil', '- Ano: 2002', '- Fonte: https://conama.mma.gov.br/'];
+  const skillLines = ['Resolução CONAMA nº 307/2002.', 'Resolução 307/2002 do CONAMA.', 'Resolução CONAMA 307/2002.'];
+  assert.deepEqual(checkNorms('skills/area/exemplo', skillLines, normsLines), []);
 });
 
 test('extractCitations não sofre backtracking catastrófico numa linha de 200 KB', () => {

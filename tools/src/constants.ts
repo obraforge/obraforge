@@ -16,9 +16,16 @@ export const CODE_EXTENSIONS: readonly string[] = [
 // fora da varredura (limitação registrada: o conteúdo dele não é lido) e tem o teto de
 // MAX_BINARY_FILE_BYTES. Todo outro arquivo, com qualquer extensão ou sem extensão, tem de ser
 // UTF-8 válido, sem byte NUL e sem BOM UTF-16, senão vira ESTRUTURA; e é varrido.
+// Ficam de fora de propósito: Excel, Word e PowerPoint com macro (.xlsm, .docm, .pptm), que são
+// código executável, e arquivo compactado (.zip), que pode esconder qualquer conteúdo.
 export const BINARY_EXTENSIONS: readonly string[] = [
-  '.xlsx', '.xlsm', '.xls', '.ods', '.docx', '.doc', '.odt', '.pptx', '.pdf', '.png', '.jpg', '.jpeg', '.gif',
+  '.xlsx', '.xls', '.ods', '.docx', '.doc', '.odt', '.pptx', '.pdf', '.png', '.jpg', '.jpeg', '.gif',
   '.webp', '.bmp', '.tif', '.tiff', '.dwg', '.dwf', '.rvt', '.rfa', '.skp',
+  // Geoprocessamento (KMZ e shapefile: .shp, .shx, .dbf, .sbn, .sbx), cronograma (MS Project),
+  // Excel binário, CAD e BIM (MicroStation, Navisworks, IFC compactado, DWFx, Rhino, ArchiCAD),
+  // nuvem de pontos (LAS, LAZ, E57) e foto HEIC.
+  '.kmz', '.shp', '.shx', '.dbf', '.sbn', '.sbx', '.mpp', '.mpt', '.xlsb', '.dgn', '.nwd', '.nwc', '.nwf',
+  '.las', '.laz', '.e57', '.ifczip', '.dwfx', '.3dm', '.pln', '.heic',
 ];
 
 // Tetos de tamanho (ESTRUTURA), verificados antes de ler o YAML ou varrer o arquivo, para o custo
@@ -39,15 +46,20 @@ export const AVISO_PADRAO =
 // O espaço de um termo de duas palavras casa com qualquer sequência de espaços, inclusive vazia.
 // Ampliação só por PR.
 // "nc" fica de fora de propósito: "NC" é não conformidade em checklist de obra. "ftp" também:
-// servidor FTP de projetos é comum em obra. E "Notification", que casaria com texto comum.
-// Termos que só casam na grafia exata: "scp" é o comando; "SCP" em maiúsculas é a sigla de
-// Sociedade em Conta de Participação, comum em incorporação imobiliária e na área tributária.
-// "rcp" é o comando; "RCP" em maiúsculas é reanimação cardiopulmonar, comum em SST.
-export const AGENCIA_CASE_SENSITIVE_TERMS: readonly string[] = ['scp', 'rcp'];
+// servidor FTP de projetos é comum em obra. E "Notification", "Stop", "Setup" e "Elicitation", que
+// são eventos de hook mas casariam com texto comum.
+// Termos acusados em qualquer grafia menos a toda em maiúsculas, que é sigla: "SCP" é Sociedade em
+// Conta de Participação, comum em incorporação imobiliária e na área tributária, e "RCP" é
+// reanimação cardiopulmonar, comum em SST. Só a palavra exatamente "SCP" ou "RCP" fica isenta:
+// "Scp", "sCp" e "Rcp" executam o comando num sistema de arquivos que não diferencia maiúsculas.
+export const AGENCIA_TERMS_EXCEPT_UPPERCASE: readonly string[] = ['scp', 'rcp'];
 
 // Shell chamado com uma opção que contém "c" (-c, -lc, -ec...) executa o texto seguinte. A opção
-// é procurada numa janela da mesma linha, depois de outras opções e argumentos (rules/agency.ts).
-export const AGENCIA_SHELLS: readonly string[] = ['bash', 'sh', 'zsh', 'dash', 'ksh', 'fish'];
+// é procurada numa janela de 200 caracteres da mesma linha lógica, depois de outras opções e
+// argumentos (rules/agency.ts).
+export const AGENCIA_SHELLS: readonly string[] = [
+  'bash', 'sh', 'zsh', 'dash', 'ksh', 'fish', 'rbash', 'mksh', 'ash', 'csh', 'tcsh',
+];
 
 export const AGENCIA_TERMS: readonly string[] = [
   'hook',
@@ -96,6 +108,27 @@ export const AGENCIA_TERMS: readonly string[] = [
   'tftp',
   'aria2c',
   'rclone',
+  // Rodada 3: execução por PowerShell e gerenciadores de pacote, contêiner e Git que baixam código.
+  'iex',
+  'Invoke-Expression',
+  'pipx install',
+  'uv add',
+  'uv pip',
+  'pnpm i',
+  'pnpm install',
+  'pnpm add',
+  'yarn add',
+  'bun add',
+  'brew install',
+  'apt install',
+  'apt-get install',
+  'docker pull',
+  'docker run',
+  'gh release download',
+  'gh gist clone',
+  'git pull',
+  'git fetch',
+  'git submodule',
   // Configuração do agente
   'settings.local.json',
   'CLAUDE.md',
@@ -112,4 +145,29 @@ export const AGENCIA_TERMS: readonly string[] = [
   'SubagentStop',
   'PreCompact',
   'PermissionRequest',
+  '.claude.json',
+  'mcp.json',
+  // Rodada 3: eventos de hook da doc oficial (https://code.claude.com/docs/en/hooks) com nome em
+  // CamelCase distintivo. Stop, Setup, Notification e Elicitation ficam de fora: casariam com texto
+  // comum.
+  'UserPromptExpansion',
+  'PermissionDenied',
+  'PostToolBatch',
+  'MessageDisplay',
+  'SubagentStart',
+  'TaskCreated',
+  'TaskCompleted',
+  'StopFailure',
+  'TeammateIdle',
+  'InstructionsLoaded',
+  'ConfigChange',
+  'CwdChanged',
+  'DirectoryAdded',
+  'FileChanged',
+  'WorktreeCreate',
+  'WorktreeRemove',
+  'PostCompact',
+  'PreModelSwitch',
+  'PostModelSwitch',
+  'ElicitationResult',
 ];

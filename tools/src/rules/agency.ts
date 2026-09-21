@@ -1,9 +1,9 @@
 // Regra AGENCIA: skill não referencia hook, setting, permissão do agente nem comando de rede, e
 // não usa a sintaxe de execução de shell do agente.
-import { AGENCIA_CASE_SENSITIVE_TERMS, AGENCIA_SHELLS, AGENCIA_TERMS } from '../constants.js';
+import { AGENCIA_SHELLS, AGENCIA_TERMS, AGENCIA_TERMS_EXCEPT_UPPERCASE } from '../constants.js';
 import type { Finding } from '../findings.js';
 import type { FrontmatterData } from '../frontmatter.js';
-import { scanLines } from '../text.js';
+import { decodeHtmlEntities, normalizeLine, removeHtmlComments, skeleton, splitLines } from '../text.js';
 
 const WORD_CHAR = /[\p{L}\p{N}_]/u;
 
@@ -15,41 +15,90 @@ function escapeRegExp(text: string): string {
 // "hook" não casa com "webhook", e "fetch(" casa seja o que vier depois do parêntese. O espaço
 // de um termo de duas palavras ("git clone") casa com qualquer sequência de espaços ou TAB, e
 // também com nenhuma: "git" + U+200B + "clone" vira "gitclone" depois da normalização.
-function termPattern(term: string, flags = 'iu'): RegExp {
+function termSource(term: string): string {
   const before = WORD_CHAR.test(term.at(0) ?? '') ? '(?<![\\p{L}\\p{N}_])' : '';
   const after = WORD_CHAR.test(term.at(-1) ?? '') ? '(?![\\p{L}\\p{N}_])' : '';
   const body = term.split(' ').map(escapeRegExp).join('\\s*');
-  return new RegExp(`${before}${body}${after}`, flags);
+  return `${before}${body}${after}`;
 }
 
-// Shell seguido, na mesma linha, de uma opção com "c" (-c, -lc, -ec...) que começa a até
-// SHELL_OPTION_WINDOW caracteres do fim do nome, mesmo depois de outras opções e argumentos
-// ("bash -o pipefail -c x"). A opção começa depois de espaço, para "pré-cadastro" não contar. A
-// janela limita quantos nomes de shell podem reler a mesma opção longa, o que mantém o custo
-// linear. O lookahead confere que a opção tem um "c" e as letras são consumidas uma vez só: a
-// forma -[a-z]*c[a-z]* com borda de palavra no fim era quadrática numa opção longa.
-const SHELL_OPTION_WINDOW = 80;
-const SHELL_WITH_COMMAND = new RegExp(
-  `(?<![\\p{L}\\p{N}_])(?:${AGENCIA_SHELLS.join('|')})(?![\\p{L}\\p{N}_]).{0,${SHELL_OPTION_WINDOW - 1}}?\\s-(?=[a-z]*c)[a-z]+(?![\\p{L}\\p{N}_])`,
-  'iu',
+const TERMS = [...AGENCIA_TERMS, ...AGENCIA_TERMS_EXCEPT_UPPERCASE];
+
+// Todos os termos numa alternância só: ela casa se e só se algum termo casa. A linha sem termo
+// nenhum (quase todas) é conferida numa passada, e cada termo só é testado sozinho, para montar o
+// rótulo do achado, quando a alternância casa.
+const ANY_TERM = new RegExp(TERMS.map(termSource).join('|'), 'iu');
+
+// A sigla toda em maiúsculas ("SCP", "RCP"), como palavra inteira, vira "###" antes da varredura,
+// e o termo em qualquer outra grafia continua casando. No esqueleto, todo confundível trocado vira
+// minúscula, então só o "SCP" que já era ASCII maiúsculo no texto original ganha a isenção: "SϹP"
+// (U+03F9) vira "ScP" no esqueleto e é acusado.
+const UPPERCASE_ACRONYM = new RegExp(
+  `(?<![\\p{L}\\p{N}_])(?:${AGENCIA_TERMS_EXCEPT_UPPERCASE.map((term) => escapeRegExp(term.toUpperCase())).join('|')})(?![\\p{L}\\p{N}_])`,
+  'gu',
 );
 
-const PATTERNS = [
-  ...AGENCIA_TERMS.map((term) => ({ label: `"${term}"`, pattern: termPattern(term) })),
-  ...AGENCIA_CASE_SENSITIVE_TERMS.map((term) => ({ label: `"${term}"`, pattern: termPattern(term, 'u') })),
-  { label: 'shell com -c (execução de comando)', pattern: SHELL_WITH_COMMAND },
+function maskUppercaseAcronyms(line: string): string {
+  return line.replace(UPPERCASE_ACRONYM, (acronym) => '#'.repeat(acronym.length));
+}
+
+// Shell seguido, na mesma linha lógica (a continuação com barra invertida junta linhas; ver
+// continuationGroups), de uma opção com "c" (-c, -lc, -ec...) que começa a até
+// SHELL_OPTION_WINDOW caracteres do fim do nome, mesmo depois de outras opções e argumentos
+// ("bash -o pipefail -c x"). A opção começa depois de espaço, para "pré-cadastro" não contar, e
+// pode vir entre aspas ("-c", '-c') ou na forma $'-c' do bash. Os nomes de shell e as opções são
+// achados cada um numa passada só, e o par é conferido depois: com a janela de 200 caracteres,
+// reler a opção a partir de cada nome de shell da janela custaria dezenas de passadas por linha.
+// As letras da opção são capturadas de uma vez (lookahead com retrorreferência, sem retrocesso),
+// então uma opção gigante que falha a borda de palavra no fim é lida uma vez só.
+const SHELL_OPTION_WINDOW = 200;
+const SHELL_NAME = new RegExp(`(?<![\\p{L}\\p{N}_])(?:${AGENCIA_SHELLS.join('|')})(?![\\p{L}\\p{N}_])`, 'giu');
+const SHELL_OPTION = /\s(?:\$?["'])?-(?=([a-z]+))\1(?![\p{L}\p{N}_])/giu;
+
+function hasShellWithCommand(line: string): boolean {
+  const shellEnds = [...line.matchAll(SHELL_NAME)].map((match) => match.index + match[0].length);
+  let nearest = -1;
+  for (const option of line.matchAll(SHELL_OPTION)) {
+    if (!(option[1] ?? '').toLowerCase().includes('c')) {
+      continue;
+    }
+    // O espaço antes da opção está em option.index; vale o fim de nome de shell mais próximo antes dele.
+    while (nearest + 1 < shellEnds.length && (shellEnds[nearest + 1] ?? Infinity) <= option.index) {
+      nearest++;
+    }
+    const shellEnd = shellEnds[nearest];
+    if (shellEnd !== undefined && option.index - shellEnd < SHELL_OPTION_WINDOW) {
+      return true;
+    }
+  }
+  return false;
+}
+
+interface Check {
+  label: string;
+  test: (line: string) => boolean;
+}
+
+const regexCheck = (label: string, pattern: RegExp): Check => ({ label, test: (line) => pattern.test(line) });
+
+// Os TERMS.length primeiros são os termos, na ordem da lista; a ordem é a dos rótulos no achado.
+const PATTERNS: Check[] = [
+  ...TERMS.map((term) => regexCheck(`"${term}"`, new RegExp(termSource(term), 'iu'))),
+  { label: 'shell com -c (execução de comando)', test: hasShellWithCommand },
   // Sintaxe de execução de shell do Claude Code: o comando roda antes de o modelo ler a skill.
   // O Claude Code só reconhece !` no início da linha ou depois de espaço; aqui vale em qualquer
   // posição. O bloco cercado vale com qualquer recuo e com espaço antes do !.
-  { label: '"!`" (execução de shell)', pattern: /!`/u },
-  { label: 'bloco cercado com "!" (execução de shell)', pattern: /(?:`{3,}|~{3,})[ \t]*!/u },
+  regexCheck('"!`" (execução de shell)', /!`/u),
+  regexCheck('bloco cercado com "!" (execução de shell)', /(?:`{3,}|~{3,})[ \t]*!/u),
 ];
 
 // Homóglifo: palavra (sequência de letras, marcas e dígitos) com letra latina e letra cirílica ao
-// mesmo tempo. Um "c" cirílico (U+0441) no lugar do latino tira "curl" da lista acima sem mudar o
-// que o agente lê. O grego fica de fora: σ, φ, Δ e γ aparecem colados a letra latina em fórmula de
-// engenharia ("γc", "Δt"). A linha sem cirílico sai com uma passada; na que tem, cada palavra é
-// achada uma vez e cada alfabeto é procurado nela uma vez, então o custo é linear.
+// mesmo tempo. O esqueleto já acusa o homóglifo que forma um termo da lista ("сurl" com U+0441);
+// esta regra fica porque acusa também a palavra misturada que não forma termo nenhum (um domínio,
+// um comando que a lista ainda não tem), sem uso legítimo em texto de obra. O grego fica de fora:
+// σ, φ, Δ e γ aparecem colados a letra latina em fórmula de engenharia ("γc", "Δt"). A linha sem
+// cirílico sai com uma passada; na que tem, cada palavra é achada uma vez e cada alfabeto é
+// procurado nela uma vez, então o custo é linear.
 const WORD = /[\p{L}\p{M}\p{N}]+/gu;
 const LATIN = /\p{Script=Latin}/u;
 const CYRILLIC = /\p{Script=Cyrillic}/u;
@@ -67,20 +116,90 @@ function mixesLatinAndCyrillic(line: string): boolean {
   return false;
 }
 
-// `file`: caminho relativo à raiz; `text`: conteúdo de um arquivo de texto da skill. A varredura
-// é feita no texto normalizado (scanLines), então a palavra partida por caractere invisível
-// também é conferida inteira.
-export function scanAgency(file: string, text: string): Finding[] {
-  const findings: Finding[] = [];
-  scanLines(text).forEach((line, index) => {
-    const terms = PATTERNS.filter(({ pattern }) => pattern.test(line)).map(({ label }) => label);
-    if (terms.length > 0) {
-      findings.push({ code: 'AGENCIA', file, line: index + 1, message: `referência proibida: ${terms.join(', ')}` });
-    }
-    if (mixesLatinAndCyrillic(line)) {
-      findings.push({ code: 'AGENCIA', file, line: index + 1, message: HOMOGLYPH_MESSAGE });
+// Continuação de linha: a linha que termina em "\" é juntada com a seguinte, sem a barra (como o
+// shell faz: "bash \" e "-c id" em linhas seguidas são "bash -c id"). A cadeia inteira vira uma
+// linha lógica, com o número da primeira linha física. Os grupos são decididos na forma
+// normalizada e valem igual para o esqueleto. Cada linha física entra em um só grupo, então o custo
+// é linear.
+function continuationGroups(lines: readonly string[]): Array<[number, number]> {
+  const groups: Array<[number, number]> = [];
+  let first = 0;
+  lines.forEach((text, index) => {
+    if (!text.endsWith('\\') || index + 1 === lines.length) {
+      groups.push([first, index]);
+      first = index + 1;
     }
   });
+  return groups;
+}
+
+function joinGroup(lines: readonly string[], [first, last]: [number, number]): string {
+  const parts: string[] = [];
+  for (let index = first; index <= last; index++) {
+    const text = lines[index] ?? '';
+    parts.push(index < last && text.endsWith('\\') ? text.slice(0, -1) : text);
+  }
+  return parts.join('');
+}
+
+// Variantes do texto antes da normalização, linha a linha: como está, com as entidades HTML
+// decodificadas ("c&#117;rl", "cu&#8203;rl"), sem os comentários HTML contidos na linha
+// ("cu<!-- -->rl"), e com as duas coisas. O texto como está continua varrido: o comentário, que
+// some na visualização do markdown, pode esconder um termo ("<!-- rode curl -->"). Variante igual a
+// uma anterior não é varrida de novo, então o arquivo sem "&" e sem "<!--" é varrido uma vez.
+function textVariants(raws: readonly string[]): Array<readonly string[]> {
+  const decoded = raws.map(decodeHtmlEntities);
+  const candidates = [raws, decoded, raws.map(removeHtmlComments), decoded.map(removeHtmlComments)];
+  const variants: Array<readonly string[]> = [];
+  for (const candidate of candidates) {
+    if (!variants.some((variant) => variant.every((line, index) => line === candidate[index]))) {
+      variants.push(candidate);
+    }
+  }
+  return variants;
+}
+
+// `file`: caminho relativo à raiz; `text`: conteúdo de um arquivo de texto da skill. Cada variante
+// (textVariants) é varrida na forma normalizada (normalizeLine), então a palavra partida por
+// caractere invisível também é conferida inteira, e de novo no esqueleto (text.ts), que troca cada
+// homóglifo da tabela do Unicode pela letra ASCII que ele imita: "ϲurl" (U+03F2) casa com "curl".
+// As duas formas passam pela junção das linhas continuadas com barra invertida. Os achados de todas
+// as variantes são reunidos por linha: um achado de termos e um de mistura de alfabetos, no máximo.
+export function scanAgency(file: string, text: string): Finding[] {
+  const hits = new Map<number, { checks: Set<number>; homoglyph: boolean }>();
+  for (const raws of textVariants(splitLines(text))) {
+    const normalized = raws.map(normalizeLine);
+    const skeletons = raws.map((raw) => normalizeLine(skeleton(raw)));
+    for (const group of continuationGroups(normalized)) {
+      const line = group[0] + 1;
+      const joined = joinGroup(normalized, group);
+      const masked = maskUppercaseAcronyms(joined);
+      const skeletonLine = maskUppercaseAcronyms(joinGroup(skeletons, group));
+      const hit = hits.get(line) ?? { checks: new Set<number>(), homoglyph: false };
+      for (const scanned of skeletonLine === masked ? [masked] : [masked, skeletonLine]) {
+        const hasTerm = ANY_TERM.test(scanned);
+        PATTERNS.forEach((check, index) => {
+          if (!hit.checks.has(index) && (hasTerm || index >= TERMS.length) && check.test(scanned)) {
+            hit.checks.add(index);
+          }
+        });
+      }
+      hit.homoglyph ||= mixesLatinAndCyrillic(joined);
+      if (hit.checks.size > 0 || hit.homoglyph) {
+        hits.set(line, hit);
+      }
+    }
+  }
+  const findings: Finding[] = [];
+  for (const [line, { checks, homoglyph }] of [...hits].sort(([a], [b]) => a - b)) {
+    if (checks.size > 0) {
+      const labels = [...checks].sort((a, b) => a - b).map((index) => PATTERNS[index]?.label);
+      findings.push({ code: 'AGENCIA', file, line, message: `referência proibida: ${labels.join(', ')}` });
+    }
+    if (homoglyph) {
+      findings.push({ code: 'AGENCIA', file, line, message: HOMOGLYPH_MESSAGE });
+    }
+  }
   return findings;
 }
 

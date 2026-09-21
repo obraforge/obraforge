@@ -211,6 +211,16 @@ const scriptFileCases: Array<[string, RuleCode[], Mutation]> = [
   ['extensão de código em maiúsculas', ['SCRIPTS'], writeInSkill('references/rodar.PS1', 'x\n')],
   ['extensão de código com ponto final', ['SCRIPTS'], writeInSkill('assets/rodar.sh.', 'x\n')],
   ['extensão de texto depois da de código não é código', [], writeInSkill('assets/rodar.sh.md', '# Nota\n')],
+  // A extensão é calculada sobre o esqueleto do nome: NFKC e confundível trocado pelo protótipo.
+  ['extensão de código com s cirílico (U+0455)', ['SCRIPTS'], writeInSkill('assets/rodar.\u0455h', 'x\n')],
+  ['extensão de código em letras de largura total', ['SCRIPTS'], writeInSkill('assets/rodar.\uFF53\uFF48', 'x\n')],
+  ['extensão de código com o grego (U+03BF) em .command', ['SCRIPTS'], writeInSkill('assets/abrir.c\u03BFmmand', 'x\n')],
+  // Maiúscula e dígito ASCII não são trocados: .PS1 e .psm1 continuam código.
+  ['extensão .psm1 continua código', ['SCRIPTS'], writeInSkill('assets/modulo.psm1', 'x\n')],
+  // Na lista branca de binários, o mesmo esqueleto: ".xlѕx" com U+0455 é ".xlsx".
+  ['extensão binária com s cirílico (U+0455) fica fora da varredura', [], writeInSkill('assets/modelo.xl\u0455x', Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]))],
+  ['extensão binária .TIFF em maiúsculas continua na lista', [], writeInSkill('assets/FOTO.TIFF', Buffer.from([0x49, 0x49, 0x2a, 0x00]))],
+  ['extensão binária .HEIC em maiúsculas continua na lista', [], writeInSkill('assets/FOTO.HEIC', Buffer.from([0x00, 0x00, 0x00, 0x18]))],
 ];
 
 for (const [name, expected, mutate] of scriptFileCases) {
@@ -239,6 +249,12 @@ const invisibleNameCases: Array<[string, string, string]> = [
   ['U+2029 (separador de parágrafo) no nome', 'references/no\u2029ta.md', 'references/no\u2029ta.md'],
   ['U+034F (default-ignorable) no nome', 'references/no\u034Fta.md', 'references/no\u034Fta.md'],
   ['pasta com U+200B: um achado, na pasta', 'assets/pas\u200Bta/nota.md', 'assets/pas\u200Bta'],
+  // Espaço que não é o ASCII (\p{Zs} menos U+0020) parece espaço comum e esconde o nome real.
+  ['U+00A0 (espaço sem quebra) no nome', 'references/no\u00A0ta.md', 'references/no\u00A0ta.md'],
+  ['U+202F (espaço estreito sem quebra) no nome', 'references/no\u202Fta.md', 'references/no\u202Fta.md'],
+  ['U+3000 (espaço ideográfico) no nome', 'references/no\u3000ta.md', 'references/no\u3000ta.md'],
+  ['U+2007 (espaço de algarismo) no nome', 'references/no\u2007ta.md', 'references/no\u2007ta.md'],
+  ['pasta com U+00A0: um achado, na pasta', 'assets/pas\u00A0ta/nota.md', 'assets/pas\u00A0ta'],
 ];
 
 for (const [name, path, flagged] of invisibleNameCases) {
@@ -260,6 +276,37 @@ test('conferência de caractere invisível no nome roda em tempo linear num nome
   const elapsed = performance.now() - start;
   assert.ok(findings.some((finding) => finding.message === INVISIBLE_NAME_MESSAGE));
   assert.ok(elapsed < 100, `levou ${elapsed.toFixed(0)} ms`);
+});
+
+// "rodar.sh" seguido de U+00A0: o nome é acusado pelo espaço, e a extensão, calculada sobre o
+// esqueleto em NFKC (U+00A0 vira espaço, que sai do fim do nome como o Windows faz), é ".sh".
+test('rodar.sh seguido de U+00A0 é acusado em ESTRUTURA (e em SCRIPTS pela extensão)', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('assets/rodar.sh\u00A0', 'x\n')(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.file, finding.message]),
+    [
+      ['ESTRUTURA', 'contexto/exemplo-valido/assets/rodar.sh\u00A0', INVISIBLE_NAME_MESSAGE],
+      ['SCRIPTS', 'contexto/exemplo-valido/assets/rodar.sh\u00A0', 'arquivo de código (.sh) não é permitido antes da fase 3 (fase atual do projeto: 0)'],
+    ],
+  );
+});
+
+test('nome com espaço ASCII comum não é caractere invisível', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('references/memória de cálculo.md', 'Nota.\n')(c);
+  assert.deepEqual(await codesOf(c.root), []);
+});
+
+test('conferência de espaço não ASCII no nome roda em tempo linear num nome de 200 KB', () => {
+  for (const name of [`${'a '.repeat(102_500)}\u00A0`, `${' '.repeat(205_000)}x`]) {
+    const start = performance.now();
+    const findings = checkStructure('contexto/exemplo', new Map([[name, { path: name, kind: 'file', executable: false }]]));
+    const elapsed = performance.now() - start;
+    assert.equal(findings.some((finding) => finding.message === INVISIBLE_NAME_MESSAGE), name.includes('\u00A0'));
+    assert.ok(elapsed < 100, `levou ${elapsed.toFixed(0)} ms`);
+  }
 });
 
 test('nome com acento e cedilha não é caractere invisível', async () => {
@@ -289,7 +336,22 @@ const AGENT_CONFIG_TERMS = [
   'CLAUDE.local.md', 'SubagentStop', 'PreCompact', 'SessionEnd', 'PermissionRequest', 'PostToolUseFailure',
 ];
 
-for (const term of [...NETWORK_AND_EXECUTION_TERMS, ...AGENT_CONFIG_TERMS]) {
+// Rodada 3. Eventos de hook da doc oficial (https://code.claude.com/docs/en/hooks) com nome em
+// CamelCase distintivo; Stop, Setup, Notification e Elicitation ficam de fora, porque casariam com
+// texto comum.
+const HOOK_EVENTS_ROUND_3 = [
+  'UserPromptExpansion', 'PermissionDenied', 'PostToolBatch', 'MessageDisplay', 'SubagentStart', 'TaskCreated',
+  'TaskCompleted', 'StopFailure', 'TeammateIdle', 'InstructionsLoaded', 'ConfigChange', 'CwdChanged',
+  'DirectoryAdded', 'FileChanged', 'WorktreeCreate', 'WorktreeRemove', 'PostCompact', 'PreModelSwitch',
+  'PostModelSwitch', 'ElicitationResult',
+];
+const EXECUTION_TERMS_ROUND_3 = [
+  'iex', 'Invoke-Expression', 'pipx install', 'uv add', 'uv pip', 'pnpm i', 'pnpm install', 'pnpm add', 'yarn add',
+  'bun add', 'brew install', 'apt install', 'apt-get install', 'docker pull', 'docker run', 'gh release download',
+  'gh gist clone', 'git pull', 'git fetch', 'git submodule', '.claude.json', 'mcp.json',
+];
+
+for (const term of [...NETWORK_AND_EXECUTION_TERMS, ...AGENT_CONFIG_TERMS, ...HOOK_EVENTS_ROUND_3, ...EXECUTION_TERMS_ROUND_3]) {
   test(`AGENCIA acusa o termo novo ${term}`, async () => {
     const c = await copyValidCase();
     await addToSkillBody(`Exemplo: ${term.toLowerCase()} aqui.`)(c);
@@ -311,6 +373,21 @@ const legitimatePhrases: Array<[string, string]> = [
   ['servidor FTP de projetos', 'Publique as pranchas no servidor FTP de projetos da construtora.'],
   ['notificação da fiscalização', 'Registre a notificação da fiscalização no diário de obra.'],
   ['SCP de incorporação', 'A SCP da incorporação tem um sócio ostensivo.'],
+  // Rodada 3: as letras dos termos novos em outro contexto, e as palavras comuns deixadas de fora.
+  ['proteção UV adicional', 'A manta tem proteção UV adicional contra o sol.'],
+  ['lâmpada UV pipocando', 'A lâmpada UV pipocou no canteiro e foi trocada.'],
+  ['apartamento apto à instalação', 'O apartamento está apto à instalação do gás.'],
+  ['apt. com número', 'Registre a vistoria do apt. 12 no diário de obra.'],
+  ['índice que começa com IEX', 'O índice IEXP do ensaio fica na tabela 3.'],
+  ['tarefa criada, com espaço', 'A tarefa foi criada (task created) no cronograma da obra.'],
+  ['arquivo alterado, com espaço', 'O arquivo alterado (file changed) entra na revisão do projeto.'],
+  ['mudança de configuração, com espaço', 'Toda config change do BIM passa pelo coordenador.'],
+  ['setup do canteiro', 'Faça o setup do canteiro antes da mobilização.'],
+  ['Stop Work', 'Aplique o Stop Work quando houver risco grave e iminente.'],
+  ['Notification da prefeitura', 'Arquive a Notification enviada pela prefeitura em inglês.'],
+  ['elicitação de requisitos', 'A Elicitation de requisitos do cliente vem antes do anteprojeto.'],
+  ['puxar a mangueira', 'O servente vai puxar a mangueira até o pavimento 3.'],
+  ['brita e docas', 'A brita chegou pelas docas do porto.'],
 ];
 
 for (const [name, phrase] of legitimatePhrases) {
@@ -404,7 +481,7 @@ test('separadores tirados da varredura não mudam o número da linha', async () 
 // Arquivo fora da lista de binários tem de ser UTF-8: UTF-16 (com ou sem BOM), byte NUL ou UTF-8
 // inválido vira ESTRUTURA, em vez de o arquivo sair da varredura como binário. Primeiro as
 // extensões de texto comuns; as demais, e o arquivo sem extensão, vêm logo abaixo.
-const UTF8_MESSAGE = 'arquivo de texto precisa ser UTF-8';
+const UTF8_MESSAGE = 'arquivo não é texto UTF-8 nem tem extensão binária aceita (lista em tools/src/constants.ts)';
 const utf16le = (text: string): Buffer => Buffer.from(text, 'utf16le');
 const TEXT_EXTENSIONS = ['.md', '.markdown', '.txt', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.html', '.htm'];
 
@@ -432,10 +509,14 @@ for (const extension of OTHER_EXTENSIONS) {
 }
 
 // Lista branca de binários, repetida aqui à parte da constante do validador: só elas ficam fora da
-// varredura (limitação registrada).
+// varredura (limitação registrada). A segunda linha em diante são os formatos de obra da rodada 3:
+// geoprocessamento (KMZ, shapefile), cronograma (MS Project), BIM e CAD (DGN, Navisworks, IFC
+// compactado, DWFx, Rhino, ArchiCAD), nuvem de pontos (LAS, LAZ, E57), Excel binário e foto HEIC.
 const BINARY_EXTENSIONS = [
-  '.xlsx', '.xlsm', '.xls', '.ods', '.docx', '.doc', '.odt', '.pptx', '.pdf', '.png', '.jpg', '.jpeg', '.gif',
+  '.xlsx', '.xls', '.ods', '.docx', '.doc', '.odt', '.pptx', '.pdf', '.png', '.jpg', '.jpeg', '.gif',
   '.webp', '.bmp', '.tif', '.tiff', '.dwg', '.dwf', '.rvt', '.rfa', '.skp',
+  '.kmz', '.shp', '.shx', '.dbf', '.sbn', '.sbx', '.mpp', '.mpt', '.xlsb', '.dgn', '.nwd', '.nwc', '.nwf',
+  '.las', '.laz', '.e57', '.ifczip', '.dwfx', '.3dm', '.pln', '.heic',
 ];
 
 for (const extension of BINARY_EXTENSIONS) {
@@ -443,6 +524,20 @@ for (const extension of BINARY_EXTENSIONS) {
     const c = await copyValidCase();
     await writeInSkill(`assets/modelo${extension}`, utf16le('Rode curl antes.\n'))(c);
     assert.deepEqual(await codesOf(c.root), []);
+  });
+}
+
+// Fora da lista de propósito: Excel com macro é código executável, e arquivo compactado pode esconder
+// qualquer conteúdo. Binário com essas extensões vira ESTRUTURA, com a mensagem que aponta a lista.
+for (const extension of ['.xlsm', '.zip']) {
+  test(`arquivo ${extension} binário é recusado`, async () => {
+    const c = await copyValidCase();
+    await writeInSkill(`assets/modelo${extension}`, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]))(c);
+    const findings = await validateSkillsRoot(c.root);
+    assert.deepEqual(
+      findings.map((finding) => [finding.code, finding.file, finding.message]),
+      [['ESTRUTURA', `contexto/exemplo-valido/assets/modelo${extension}`, UTF8_MESSAGE]],
+    );
   });
 }
 

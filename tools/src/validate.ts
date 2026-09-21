@@ -102,7 +102,11 @@ async function validateSkill(
     if (content.kind === 'text') {
       texts.set(entry.path, content.text);
     } else if (content.kind === 'not-utf8') {
-      findings.push({ code: 'ESTRUTURA', file: `${prefix}${entry.path}`, message: 'arquivo de texto precisa ser UTF-8' });
+      findings.push({
+        code: 'ESTRUTURA',
+        file: `${prefix}${entry.path}`,
+        message: 'arquivo não é texto UTF-8 nem tem extensão binária aceita (lista em tools/src/constants.ts)',
+      });
     } else if (content.kind === 'too-large') {
       findings.push({
         code: 'ESTRUTURA',
