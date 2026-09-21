@@ -1,0 +1,22 @@
+# Decisões de arquitetura (ADR)
+
+Cada decisão estrutural do obraforge é um arquivo `NNNN-titulo.md` nesta pasta, com contexto,
+decisão, consequências (inclusive as ruins) e alternativas rejeitadas.
+
+**ADR aceito não se edita.** Mudar uma decisão é escrever um ADR novo que diz, logo no início,
+`Revoga:` ou `Revoga em parte:` e aponta o anterior.
+
+## Histórico anterior a esta pasta
+
+As decisões **D-001 a D-014** foram tomadas antes de o repositório existir e estão em
+`ideias/obraforge/decisoes.md`, no repositório privado `brainstorming`, congelado desde a
+graduação da ideia (D-014, 13/09/2026). Estão vigentes as decisões D-003 a D-014, menos os
+trechos revogados por ADR daqui. A síntese delas está no documento *Base Técnica · Visão e
+Decisões* (ChatPRD, v1.1 de 13/09/2026). Onde um ADR divergir de uma decisão D-, vale o ADR.
+
+## Índice
+
+| ADR | Título | Estado |
+| --- | --- | --- |
+| [0001](0001-execucao-em-github-issues-e-projects.md) | Execução em GitHub Issues e Projects | Aceito |
+| [0002](0002-esm-e-build-com-tsc-sem-bundler.md) | ESM e build com `tsc`, sem bundler | Aceito; revoga em parte a D-004 |
