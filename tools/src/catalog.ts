@@ -5,9 +5,11 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AREAS } from './areas.js';
+import { MAX_TEXT_FILE_BYTES } from './constants.js';
 import { isPlainObject, ownValue, parseFrontmatter, type FrontmatterData } from './frontmatter.js';
+import { extractCitations } from './rules/norms.js';
 import { splitLines } from './text.js';
-import { readBytes, readText, walkTree, type Entry } from './tree.js';
+import { readBytes, readSkillFile, walkTree, type Entry } from './tree.js';
 
 // Erro esperado (fail-closed): a skill não pôde ser catalogada. Distinto de erro inesperado.
 export class CatalogBuildError extends Error {}
@@ -109,12 +111,16 @@ async function readCliVersion(cliPackagePath: string): Promise<string> {
 
 async function buildSkillEntry(root: string, skillDir: string, allEntries: readonly Entry[]): Promise<CatalogSkillEntry> {
   const prefix = `${skillDir}/`;
-  const scoped: Entry[] = [];
+  const all: Entry[] = [];
   for (const entry of allEntries) {
     if (entry.path.startsWith(prefix)) {
-      scoped.push({ ...entry, path: entry.path.slice(prefix.length) });
+      all.push({ ...entry, path: entry.path.slice(prefix.length) });
     }
   }
+  // Arquivo ou pasta oculta (nome começando com ".", ex.: .DS_Store, .git) não entra no hash nem
+  // no restante da varredura: o validador já recusa esse tipo de entrada (ESTRUTURA); o gerador só
+  // ignora, para o hash não depender de arquivo que o SO cria sozinho.
+  const scoped = all.filter((entry) => !isHidden(entry.path));
 
   // Fail-closed: link simbólico ou arquivo especial dentro da skill nunca entra no hash, então a
   // skill inteira falha em vez de silenciosamente ignorar a entrada.
@@ -126,7 +132,10 @@ async function buildSkillEntry(root: string, skillDir: string, allEntries: reado
   const skillAbs = join(root, skillDir);
   let skillText: string | null;
   try {
-    skillText = await readText(join(skillAbs, 'SKILL.md'));
+    // O validador aceita SKILL.md com BOM UTF-8 (readSkillFile já retira o BOM); o gerador lê da
+    // mesma forma, para as duas ferramentas concordarem na mesma pasta.
+    const content = await readSkillFile(join(skillAbs, 'SKILL.md'), { binary: false, maxBytes: MAX_TEXT_FILE_BYTES });
+    skillText = content.kind === 'text' ? content.text : null;
   } catch {
     skillText = null;
   }
@@ -166,6 +175,12 @@ async function buildSkillEntry(root: string, skillDir: string, allEntries: reado
   };
 }
 
+// Qualquer segmento do caminho relativo à skill começando com "." (arquivo oculto, ou dentro de
+// uma pasta oculta, ex.: ".git/config").
+function isHidden(path: string): boolean {
+  return path.split('/').some((segment) => segment.startsWith('.'));
+}
+
 function requireString(data: FrontmatterData, key: string, skillDir: string, label: string): string {
   const value = ownValue(data, key);
   if (typeof value !== 'string' || value.trim() === '') {
@@ -175,16 +190,22 @@ function requireString(data: FrontmatterData, key: string, skillDir: string, lab
 }
 
 // Hash da skill: todos os arquivos (não pastas), ordenados pelos bytes UTF-8 do caminho relativo
-// POSIX (Buffer.compare, não comparação de string JS). Cada linha é "caminho\0sha256hex\n" dos
-// bytes crus do arquivo; o sha256 da skill é o sha256 hex da concatenação dessas linhas.
+// POSIX, normalizado em NFC (Buffer.compare, não comparação de string JS). Cada linha é
+// "caminho\0sha256hex\n" dos bytes crus do arquivo; o sha256 da skill é o sha256 hex da
+// concatenação dessas linhas. O caminho usado na linha (e na ordenação) é sempre a forma NFC,
+// porque é a forma que o git grava; a leitura do arquivo em si usa o caminho como o sistema de
+// arquivos devolveu (`diskPath`), que pode estar em NFD (ex.: HFS+/APFS antigo). Um mesmo nome
+// visível criado em NFD ou em NFC produz, assim, o mesmo hash.
 async function hashSkillFiles(skillAbs: string, scoped: readonly Entry[]): Promise<string> {
-  const files = scoped.filter((entry) => entry.kind === 'file');
-  const sorted = [...files].sort((a, b) => compareBytes(a.path, b.path));
+  const files = scoped
+    .filter((entry) => entry.kind === 'file')
+    .map((entry) => ({ diskPath: entry.path, nfcPath: entry.path.normalize('NFC') }));
+  const sorted = [...files].sort((a, b) => compareBytes(a.nfcPath, b.nfcPath));
   const lines: Buffer[] = [];
   for (const file of sorted) {
-    const bytes = await readBytes(join(skillAbs, file.path));
+    const bytes = await readBytes(join(skillAbs, file.diskPath));
     const fileHash = createHash('sha256').update(bytes).digest('hex');
-    lines.push(Buffer.from(`${file.path}\0${fileHash}\n`, 'utf8'));
+    lines.push(Buffer.from(`${file.nfcPath}\0${fileHash}\n`, 'utf8'));
   }
   return createHash('sha256').update(Buffer.concat(lines)).digest('hex');
 }
@@ -193,26 +214,36 @@ function compareBytes(a: string, b: string): number {
   return Buffer.compare(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 }
 
-// references: os headings "## " de references/normas.md, na ordem do arquivo, como texto puro
-// (não o número canônico que o validador usa para casar citação). Lista vazia se o arquivo não
-// existir, não for arquivo regular, ou não for texto.
+// references: a chave canônica (a mesma que a regra NORMA usa para casar citação) de cada heading
+// "## " de references/normas.md, na ordem do arquivo, sem duplicatas. Um heading que não gera
+// chave (não casa com nenhuma forma de citação reconhecida) fica de fora. Lista vazia se o
+// arquivo não existir, não for arquivo regular, ou não for texto que o validador aceitaria. A
+// leitura é a mesma do validador (readSkillFile, que tira o BOM UTF-8), para a entrada da
+// primeira linha não sumir de references quando o arquivo tem BOM.
 async function readReferences(skillAbs: string, scoped: readonly Entry[]): Promise<string[]> {
   const normsEntry = scoped.find((entry) => entry.path === 'references/normas.md');
   if (normsEntry === undefined || normsEntry.kind !== 'file') {
     return [];
   }
-  const text = await readText(join(skillAbs, 'references/normas.md'));
-  if (text === null) {
+  const content = await readSkillFile(join(skillAbs, 'references/normas.md'), { binary: false, maxBytes: MAX_TEXT_FILE_BYTES });
+  if (content.kind !== 'text') {
     return [];
   }
-  const headings: string[] = [];
-  for (const line of splitLines(text)) {
+  const references: string[] = [];
+  const seen = new Set<string>();
+  for (const line of splitLines(content.text)) {
     const match = HEADING.exec(line);
-    if (match !== null) {
-      headings.push((match[1] ?? '').trim());
+    if (match === null) {
+      continue;
+    }
+    for (const citation of extractCitations([(match[1] ?? '').trim()])) {
+      if (!seen.has(citation.key)) {
+        seen.add(citation.key);
+        references.push(citation.key);
+      }
     }
   }
-  return headings;
+  return references;
 }
 
 // Ordem: pela posição da área em areas.ts; área desconhecida (fora da lista fechada) vai depois

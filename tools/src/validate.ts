@@ -1,15 +1,16 @@
 import { lstat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { BINARY_EXTENSIONS, MAX_BINARY_FILE_BYTES, MAX_TEXT_FILE_BYTES } from './constants.js';
 import type { Finding } from './findings.js';
 import { parseFrontmatter } from './frontmatter.js';
-import { checkAllowedToolsKey, scanAgency } from './rules/agency.js';
+import { checkFrontmatterKeys, scanAgency } from './rules/agency.js';
 import { checkDisclaimer } from './rules/disclaimer.js';
 import { checkLinks, checkScripts, checkStructure } from './rules/filesystem.js';
-import { checkDescription, checkMetadata, checkName } from './rules/frontmatter-fields.js';
+import { checkDescription, checkMetadata, checkName, checkOptionalFields } from './rules/frontmatter-fields.js';
 import { checkNorms } from './rules/norms.js';
 import { scanPersonalData } from './rules/personal-data.js';
 import { splitLines } from './text.js';
-import { readText, walkTree, type Entry } from './tree.js';
+import { extensionOf, readSkillFile, readText, walkTree, type Entry } from './tree.js';
 
 export type { Finding, RuleCode } from './findings.js';
 export { RULE_CODES } from './findings.js';
@@ -83,25 +84,43 @@ async function validateSkill(
     }
   }
 
-  const findings = [...checkStructure(skillDir, entries), ...checkScripts(skillDir, entries)];
+  let findings = [...checkStructure(skillDir, entries), ...checkScripts(skillDir, entries)];
 
-  // Conteúdo de todo arquivo de texto da skill; binário (byte NUL nos primeiros 8 KB) fica de fora.
+  // Conteúdo de todo arquivo de texto da skill. Só arquivo da lista de binários fica de fora (e só
+  // o tamanho dele é conferido). Todo outro arquivo ou entra em `texts` ou é acusado aqui: nunca
+  // sai da varredura calado.
   const texts = new Map<string, string>();
   for (const entry of entries.values()) {
-    if (entry.kind === 'file') {
-      const text = await readText(join(root, skillDir, entry.path));
-      if (text !== null) {
-        texts.set(entry.path, text);
-      }
+    if (entry.kind !== 'file') {
+      continue;
+    }
+    const binary = BINARY_EXTENSIONS.includes(extensionOf(entry.path));
+    const content = await readSkillFile(join(root, skillDir, entry.path), {
+      binary,
+      maxBytes: binary ? MAX_BINARY_FILE_BYTES : MAX_TEXT_FILE_BYTES,
+    });
+    if (content.kind === 'text') {
+      texts.set(entry.path, content.text);
+    } else if (content.kind === 'not-utf8') {
+      findings.push({
+        code: 'ESTRUTURA',
+        file: `${prefix}${entry.path}`,
+        message: 'arquivo não é texto UTF-8 nem tem extensão binária aceita (lista em tools/src/constants.ts)',
+      });
+    } else if (content.kind === 'too-large') {
+      findings.push({
+        code: 'ESTRUTURA',
+        file: `${prefix}${entry.path}`,
+        message: binary
+          ? `arquivo binário com mais de 5 MiB (${MAX_BINARY_FILE_BYTES} bytes)`
+          : `arquivo de texto com mais de 1 MiB (${MAX_TEXT_FILE_BYTES} bytes)`,
+      });
     }
   }
 
-  const agencyFindings: Finding[] = [];
   for (const [path, text] of texts) {
-    agencyFindings.push(...scanAgency(`${prefix}${path}`, text));
-    findings.push(...scanPersonalData(`${prefix}${path}`, text));
+    findings.push(...scanAgency(`${prefix}${path}`, text), ...scanPersonalData(`${prefix}${path}`, text));
   }
-  findings.push(...agencyFindings);
 
   // Sem SKILL.md a ESTRUTURA já acusa, e as regras que dependem dele não rodam.
   if (entries.get('SKILL.md')?.kind !== 'file') {
@@ -109,8 +128,8 @@ async function validateSkill(
   }
   const skillFile = `${prefix}SKILL.md`;
   const skillText = texts.get('SKILL.md');
+  // SKILL.md fora de `texts` já foi acusado na leitura (.md não está na lista de binários).
   if (skillText === undefined) {
-    findings.push({ code: 'ESTRUTURA', file: skillFile, message: 'SKILL.md não é arquivo de texto' });
     return findings;
   }
 
@@ -118,11 +137,17 @@ async function validateSkill(
   const frontmatter = parseFrontmatter(skillLines);
   if (frontmatter.ok) {
     const ctx = { file: skillFile, area, folder, lineOfKey: frontmatter.lineOfKey };
+    // Um achado por linha: na linha de uma chave fora da lista branca, o achado da chave
+    // substitui o da varredura de texto (ex.: "allowed-tools: Bash(curl *)").
+    const keyFindings = checkFrontmatterKeys(skillFile, frontmatter.data, frontmatter.lineOfKey);
+    const keyLines = new Set(keyFindings.map((finding) => finding.line));
+    findings = findings.filter((finding) => !(finding.code === 'AGENCIA' && finding.file === skillFile && keyLines.has(finding.line)));
     findings.push(
       ...checkName(frontmatter.data, retired, ctx),
       ...checkDescription(frontmatter.data, ctx),
       ...checkMetadata(frontmatter.data, ctx),
-      ...checkAllowedToolsKey(skillFile, frontmatter.data, frontmatter.lineOfKey(['allowed-tools']), agencyFindings),
+      ...checkOptionalFields(frontmatter.data, ctx),
+      ...keyFindings,
     );
   } else {
     // Frontmatter ausente, YAML inválido ou que não é mapa cai em ESTRUTURA, e as regras que
@@ -132,12 +157,11 @@ async function validateSkill(
 
   findings.push(...checkDisclaimer(skillDir, frontmatter.body));
 
-  // Sem normas.md a ESTRUTURA já acusa; NORMA não roda, para não acusar cada citação em cascata.
+  // Sem normas.md legível a ESTRUTURA já acusa (falta o arquivo, ou ele foi acusado na leitura);
+  // NORMA não roda, para não acusar cada citação em cascata.
   const normsText = texts.get('references/normas.md');
   if (normsText !== undefined) {
     findings.push(...checkNorms(skillDir, skillLines, splitLines(normsText)));
-  } else if (entries.get('references/normas.md')?.kind === 'file') {
-    findings.push({ code: 'ESTRUTURA', file: `${prefix}references/normas.md`, message: 'normas.md não é arquivo de texto' });
   }
   return findings;
 }

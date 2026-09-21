@@ -14,7 +14,7 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | A3 Controles | 🟡 falta só o 2FA da org | Conferido pela API em 21/09/2026: secret scanning, push protection e PVR ligados; membros não criam repositório; permissão padrão só leitura; pinagem por SHA exigida na org; token padrão do Actions só leitura e Actions sem aprovar PR; aprovação de workflow para contribuidor novo; ruleset de tags `v*` só para admin da org ([ADR-0003](adr/0003-ruleset-de-tags-de-release.md), sem prova de recusa: não há conta sem papel de admin); **ruleset da `main` (D-012)** com os seis checks amarrados ao app do GitHub Actions. **Push direto em `main` recusado** em 21/09/2026 (`GH013: Changes must be made through a pull request`), mesmo vindo do admin. Falta o 2FA obrigatório na org (a REST não grava o campo; o dono liga pela interface) |
 | B1 Validador | ✅ camadas 1 e 2 | 137 testes verdes em Node 22.23.2 e 24.15.0. Um caso inválido por regra, cada um acusando **exatamente** o próprio código (os de `LINK` e `DADO-PESSOAL` são montados em tempo de teste, para nenhum CPF ou CNPJ com DV válido entrar no repositório público). `npm run validar` sobre `skills/` sai 0; sobre `invalida-NORMA` sai 1 com arquivo e linha. Vermelho demonstrado desligando `AGENCIA` (21 testes caem), `DADO-PESSOAL` (8) e `LINK` (7), só os da própria regra |
 | B2 Catálogo | ✅ camadas 1 e 2 | 149 testes verdes em Node 22.23.2 e 24.15.0: geração idêntica byte a byte, um byte alterado muda só o hash daquela skill, checkout com `core.autocrlf=true` entrega LF pelo `.gitattributes` (repositório git real no teste). `--verificar` sai 1 com diff quando o arquivo está desatualizado. Vermelho demonstrado trocando a ordenação por bytes pela comparação de string. PRs A, B e C do §10 simulados localmente com a cor esperada em cada comando |
-| C1 CLI mínima | ✅ camadas 1 e 2; camada 3 local | `--version`, `--help`, `list` com `util.parseArgs` e zero dependência. Tarball de `npm pack` com exatamente as 13 entradas da lista branca (teste falha se sobrar ou faltar; vermelho demonstrado vazando `dist/test/`). Instalado do tarball numa pasta vazia: `--version` imprime `0.0.1`, `list` imprime a frase de catálogo vazio. Node 20.20.2 real sai 3 com a versão mínima. Descrição de skill sanitizada antes do terminal (vermelho demonstrado). A camada 3 no npm é o C3 |
+| C1 CLI mínima | ✅ camadas 1 e 2; camada 3 local | `--version`, `--help`, `list` com `util.parseArgs` e zero dependência. Tarball de `npm pack` com as 13 entradas da lista branca; o teste deriva o esperado de `cli/src` e falha se sobrar ou faltar arquivo, inclusive sobra obsoleta em `dist/src` (corrigido no gate: antes montava o esperado do disco). Instalado do tarball numa pasta vazia: `--version` imprime `0.0.1`, `list` imprime a frase de catálogo vazio. Node 20.20.2 real sai 3 com a versão mínima. Descrição de skill sanitizada antes do terminal (vermelho demonstrado). A camada 3 no npm é o C3 |
 | D1 CI | ✅ camadas 1 a 3 | Primeira execução no GitHub (push de 21/09/2026) verde nos seis checks: `validar`, `catalogo`, `testes (22)`, `testes (24)`, `build`, `osv` — os nomes que o ruleset exige |
 | D2 Segurança contínua | ✅ camadas 1 a 3 | CodeQL sem alerta. Scorecard publicado sobre `415f132` (21/09/2026): **10 nos cinco checks** (`Dangerous-Workflow`, `Token-Permissions`, `Pinned-Dependencies`, `Security-Policy`, `License`) depois do PR #2, que desceu a permissão do CodeQL para o job ([ADR-0005](adr/0005-token-permissions-deu-10.md) corrige a premissa do ADR-0004). Linha de base da nota geral: 6.9; `Branch-Protection` 4 (teto 8 pela D-012), e `Code-Review`, `Maintained`, `CII-Best-Practices` e `Fuzzing` abertos — dependem de histórico, de mais mantenedores ou estão fora do escopo da fase 0. Dependabot ativo: o PR #1 (subir `@types/node` para 26) foi fechado com resposta, e o `dependabot.yml` passou a ignorar major desse pacote |
 | C2 Publicação inicial | ✅ camadas 2 e 3 | Feito pelo dono em 21/09/2026 com npm 11.19.1 e conta pessoal com 2FA: `npm view obraforge versions` → só `0.0.0`, depreciada ("Reserva de nome; use a versão mais recente."); `npm trust list obraforge` → `github`, `release.yml`, `obraforge/obraforge`, permissão de publish; publishing access em "Require two-factor authentication and disallow tokens"; `gh secret list` vazio. Organização `obraforge` criada no npm, dentro da conta pessoal, reservando o escopo `@obraforge` |
@@ -36,6 +36,23 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | 8 | Tag de versão divergente recusada antes de publicar | ✅ | Tag de teste `v0.0.2` com `cli/package.json` em `0.0.1`: workflow [35650619416](https://github.com/obraforge/obraforge/actions/runs/35650619416) falhou no `verificar` ("Guarda 2 (versão da tag) recusou: a tag v0.0.2 pede a versão 0.0.2, mas o package.json do pacote está em \"0.0.1\""), `publicar` e `release` pulados; `npm view obraforge versions` continuou `["0.0.0","0.0.1"]`. Tag de teste apagada em seguida |
 | 9 | `gh secret list` vazio; Scorecard com 10 nos cinco checks do D2 | ✅ | Segredos: nenhum. Scorecard sobre `415f132`: 10 nos cinco |
 
+## Gate da fase 0 — verificação adversarial (21/09/2026)
+
+- **Lentes:** correção e segurança (agentes `adversario`), com contra-refutação de cada achado por
+  agentes novos, agrupados por tema. **Lente externa (Codex): ausente** — o Codex CLI 0.147.0 está
+  desatualizado para o modelo configurado (erro 400 "requires a newer version of Codex").
+- **Pipeline:** resistiu a tudo nas duas lentes (pinagem conferida, provenance da 0.0.1 verificada,
+  rulesets e permissões, empacotamento, log do release sem segredo).
+- **Validador:** 14 achados confirmados (3 altos, 3 médios, 8 baixos), corrigidos com teste vermelho
+  antes do conserto. A reverificação achou 8 pontos novos (uma regressão da própria correção, N1);
+  a segunda, 10 (três regressões das correções). Na segunda vez que a mesma classe de achado
+  apareceu (contorno de lista enumerada), o plano foi refeito: uma rodada final estrutural e o
+  registro do limite no [ADR-0006](adr/0006-endurecimento-do-validador.md) — a varredura de termos
+  é alarme, não cerca, e a revisão humana é a barreira.
+- **Decisão de cada achado:** corrigido (os 14 do gate, N1–N8 e A1, A2, A4–A10); aceito como
+  limitação no ADR-0006 (A3, conteúdo de PDF e demais binários não varrido; e as listadas lá).
+- **Suíte:** 26 testes na `cli` e 834 no `tools`, verdes em Node 22 e 24.
+
 ## Pendências do dono
 
 1. **2FA obrigatório na org**, pela interface (Settings → Authentication security).
@@ -56,9 +73,9 @@ as actions de terceiros dos workflows estão autorizadas, com o `osv` rodando a 
 
 ## Notas para as próximas fatias
 
-- **B1, limitação conhecida:** arquivo binário (byte NUL nos primeiros 8 KB, como um `.xlsx`) não
-  é escaneado por `AGENCIA` nem `DADO-PESSOAL`. Decidir na fase 1, antes da primeira skill com
-  fixture de planilha.
+- **B1, limitação conhecida:** conteúdo de binário da lista branca de extensões (planilha, PDF,
+  desenho) não é varrido por `AGENCIA` nem `DADO-PESSOAL`; decidir na fase 1, antes da primeira
+  skill com fixture binária. As demais limitações aceitas estão no ADR-0006.
 - **B1, CNPJ alfanumérico:** implementado com a fonte citada no código (Receita Federal e Serpro),
   consultada pelo agente que escreveu a regra e não reconferida na revisão.
 - Fora de um terminal, o `node --test` imprime TAP no Node 22 (`# pass`) e o formato spec no

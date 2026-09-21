@@ -23,3 +23,4 @@ Decisões* (ChatPRD, v1.1 de 13/09/2026). Onde um ADR divergir de uma decisão D
 | [0003](0003-ruleset-de-tags-de-release.md) | Ruleset de tags de release | Aceito; complementa a D-012 |
 | [0004](0004-token-permissions-9-no-release.md) | Token-Permissions em 9 por causa do job de release | Aceito; revogado em parte pelo 0005 |
 | [0005](0005-token-permissions-deu-10.md) | Token-Permissions deu 10: o critério do D2 volta a valer inteiro | Aceito; revoga em parte o 0004 |
+| [0006](0006-endurecimento-do-validador.md) | Endurecimento do validador depois do gate da fase 0 | Aceito |
