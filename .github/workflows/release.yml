@@ -1,0 +1,127 @@
+# Release do pacote npm `obraforge` (item C3 do plano da fase 0).
+#
+# Disparo: push de tag `v*`. Da 0.0.1 em diante, só este workflow publica: por OIDC (publicador
+# confiável do npm), sem NPM_TOKEN e sem segredo nenhum. O nome deste arquivo está gravado no
+# publicador confiável (`npm trust ... --file release.yml`): renomear quebra a publicação.
+#
+# Três jobs, cada um com o mínimo de permissão, em sequência:
+#   verificar  contents: read                    guardas, validar, catálogo, testes, build
+#   publicar   contents: read + id-token: write  npm publish com provenance
+#   release    contents: write                   gh release com changelog e SBOM
+# O token OIDC nunca convive com escrita no repositório, e o job com escrita no repositório não
+# executa código de dependência (não roda npm ci nem tsc).
+#
+# As guardas (tools/src/release-guards.ts) rodam direto do fonte, pelo type stripping do Node 24,
+# antes do npm ci: nenhum código de dependência executa antes delas.
+#
+# O setup-node fica SEM `registry-url`: essa opção grava um .npmrc com
+# `_authToken=${NODE_AUTH_TOKEN}`, que já atrapalhou a troca OIDC (actions/setup-node#1440,
+# npm/documentation#1960). O registro padrão do npm já é https://registry.npmjs.org/.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: verificar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (histórico completo, para a guarda 1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Guarda 1 — o commit da tag está em main
+        run: node tools/src/release-guards.ts commit-em-main "$GITHUB_SHA" origin/main
+      - name: Guarda 2 — a versão da tag é a de cli/package.json
+        run: node tools/src/release-guards.ts versao-da-tag "$GITHUB_REF_NAME" cli/package.json
+      - name: Guarda 3 — npm 11.5.1 ou superior
+        run: node tools/src/release-guards.ts versao-do-npm "$(npm --version)"
+      - name: Seção da versão no CHANGELOG.md
+        run: node tools/src/release-guards.ts changelog "$GITHUB_REF_NAME" CHANGELOG.md
+      - name: Instalar dependências
+        run: npm ci --ignore-scripts
+      - name: Validar skills
+        run: npm run validar
+      - name: Conferir catalog.json
+        run: npm run catalogo -- --verificar
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
+      # Ensaio do SBOM do job `release`: falha aqui, antes de publicar, e não depois. O
+      # package.json raiz precisa de `version`: sem ela, `npm sbom -w cli` sai com EINVALIDPURLTYPE.
+      - name: Ensaio do SBOM
+        run: npm sbom --sbom-format=cyclonedx --omit=dev --package-lock-only -w cli > /dev/null
+
+  publicar:
+    name: publicar
+    needs: verificar
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      # A guarda 3 vale para o npm que publica, neste runner.
+      - name: Guarda 3 — npm 11.5.1 ou superior
+        run: node tools/src/release-guards.ts versao-do-npm "$(npm --version)"
+      - name: Instalar dependências
+        run: npm ci --ignore-scripts
+      - name: Build da CLI
+        run: npm run build -w cli
+      # O prepack de cli/ copia catalog.json, skills/, README.md e LICENSE para dentro do pacote.
+      # Sem NPM_TOKEN: a autenticação é a troca OIDC do publicador confiável.
+      - name: Publicar no npm (OIDC, com provenance)
+        run: npm publish --provenance --access public -w cli
+
+  release:
+    name: release
+    needs: publicar
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Notas da release (seção do CHANGELOG.md)
+        run: node tools/src/release-guards.ts changelog "$GITHUB_REF_NAME" CHANGELOG.md > "$RUNNER_TEMP/notas.md"
+      # Só do package-lock.json, sem npm ci: nenhum código de dependência roda neste job.
+      - name: SBOM CycloneDX do pacote
+        run: npm sbom --sbom-format=cyclonedx --omit=dev --package-lock-only -w cli > "$RUNNER_TEMP/obraforge-$GITHUB_REF_NAME.cdx.json"
+      - name: Criar a release no GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          "$RUNNER_TEMP/obraforge-$GITHUB_REF_NAME.cdx.json"
+          --repo "$GITHUB_REPOSITORY"
+          --title "$GITHUB_REF_NAME"
+          --notes-file "$RUNNER_TEMP/notas.md"
+          --verify-tag
