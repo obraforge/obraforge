@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdir, readdir, readFile, symlink } from 'node:fs/promises';
+import { chmod, mkdir, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { RULE_CODES, validateSkillsRoot } from '../src/validate.js';
@@ -11,9 +11,9 @@ import {
   codesOf,
   copyValidCase,
   cpfWithDv,
+  makeTempDir,
   maskCnpj,
   maskCpf,
-  REPO_ROOT,
   removeTempDirs,
   VALID_CASE,
 } from './helpers.js';
@@ -26,8 +26,13 @@ test('o caso válido passa em todas as regras', async () => {
   assert.deepEqual(await validateSkillsRoot(VALID_CASE), []);
 });
 
-test('o validador sobre skills/ do repositório passa', async () => {
-  assert.deepEqual(await validateSkillsRoot(join(REPO_ROOT, 'skills')), []);
+// Raiz sem nenhuma skill (só o README, como skills/ na fase 0) passa. O skills/ real do
+// repositório é conferido pelo job validar do CI; aqui ele não entra, para o job testes não
+// ficar vermelho junto com o validar quando uma skill do PR estiver errada.
+test('o validador sobre uma raiz só com README passa', async () => {
+  const root = await makeTempDir();
+  await writeFile(join(root, 'README.md'), '# skills\n');
+  assert.deepEqual(await validateSkillsRoot(root), []);
 });
 
 for (const name of committedCases) {
