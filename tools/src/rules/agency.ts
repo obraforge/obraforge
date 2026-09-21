@@ -1,4 +1,5 @@
-// Regra AGENCIA: skill não referencia hook, setting, permissão do agente nem comando de rede.
+// Regra AGENCIA: skill não referencia hook, setting, permissão do agente nem comando de rede, e
+// não usa a sintaxe de execução de shell do agente.
 import { AGENCIA_TERMS } from '../constants.js';
 import type { Finding } from '../findings.js';
 import type { FrontmatterData } from '../frontmatter.js';
@@ -11,20 +12,29 @@ function escapeRegExp(text: string): string {
 }
 
 // Borda de palavra Unicode só do lado em que o termo começa ou termina em letra ou dígito:
-// "hook" não casa com "webhook", e "fetch(" casa seja o que vier depois do parêntese.
+// "hook" não casa com "webhook", e "fetch(" casa seja o que vier depois do parêntese. O espaço
+// de um termo de duas palavras ("git clone") casa com qualquer sequência de espaços ou TAB.
 function termPattern(term: string): RegExp {
   const before = WORD_CHAR.test(term.at(0) ?? '') ? '(?<![\\p{L}\\p{N}_])' : '';
   const after = WORD_CHAR.test(term.at(-1) ?? '') ? '(?![\\p{L}\\p{N}_])' : '';
-  return new RegExp(`${before}${escapeRegExp(term)}${after}`, 'iu');
+  const body = term.split(' ').map(escapeRegExp).join('\\s+');
+  return new RegExp(`${before}${body}${after}`, 'iu');
 }
 
-const PATTERNS = AGENCIA_TERMS.map((term) => ({ term, pattern: termPattern(term) }));
+const PATTERNS = [
+  ...AGENCIA_TERMS.map((term) => ({ label: `"${term}"`, pattern: termPattern(term) })),
+  // Sintaxe de execução de shell do Claude Code: o comando roda antes de o modelo ler a skill.
+  // O Claude Code só reconhece !` no início da linha ou depois de espaço; aqui vale em qualquer
+  // posição. O bloco cercado vale com qualquer recuo e com espaço antes do !.
+  { label: '"!`" (execução de shell)', pattern: /!`/u },
+  { label: 'bloco cercado com "!" (execução de shell)', pattern: /(?:`{3,}|~{3,})[ \t]*!/u },
+];
 
 // `file`: caminho relativo à raiz; `text`: conteúdo de um arquivo de texto da skill.
 export function scanAgency(file: string, text: string): Finding[] {
   const findings: Finding[] = [];
   scanLines(text).forEach((line, index) => {
-    const terms = PATTERNS.filter(({ pattern }) => pattern.test(line)).map(({ term }) => `"${term}"`);
+    const terms = PATTERNS.filter(({ pattern }) => pattern.test(line)).map(({ label }) => label);
     if (terms.length > 0) {
       findings.push({ code: 'AGENCIA', file, line: index + 1, message: `referência proibida: ${terms.join(', ')}` });
     }
@@ -32,19 +42,25 @@ export function scanAgency(file: string, text: string): Finding[] {
   return findings;
 }
 
-// A chave allowed-tools também é procurada no frontmatter já interpretado, porque uma chave
-// entre aspas com escape YAML ("allowed\x2Dtools") não aparece como texto na varredura.
-export function checkAllowedToolsKey(
+// Lista branca das chaves de topo do frontmatter: só as do padrão Agent Skills. As chaves próprias
+// do Claude Code (hooks, shell, model, context, paths...) mudam o que o agente faz ou quando a
+// skill carrega; allowed-tools, que dá permissão de ferramenta, fica de fora pela regra 4 do
+// AGENTS.md. Qualquer outra chave também é recusada.
+const FRONTMATTER_KEYS: readonly string[] = ['name', 'description', 'license', 'compatibility', 'metadata'];
+
+// A conferência é feita no frontmatter já interpretado, porque uma chave entre aspas com escape
+// YAML ("allowed\x2Dtools") não aparece como texto na varredura.
+export function checkFrontmatterKeys(
   file: string,
   data: FrontmatterData,
-  keyLine: number | undefined,
-  textFindings: readonly Finding[],
+  lineOfKey: (path: readonly string[]) => number | undefined,
 ): Finding[] {
-  if (!Object.hasOwn(data, 'allowed-tools')) {
-    return [];
-  }
-  if (textFindings.some((finding) => finding.file === file && finding.line === keyLine)) {
-    return [];
-  }
-  return [{ code: 'AGENCIA', file, line: keyLine, message: 'frontmatter com a chave allowed-tools' }];
+  return Object.keys(data)
+    .filter((key) => !FRONTMATTER_KEYS.includes(key))
+    .map((key) => ({
+      code: 'AGENCIA',
+      file,
+      line: lineOfKey([key]),
+      message: `chave de frontmatter fora do padrão Agent Skills: ${key}`,
+    }));
 }

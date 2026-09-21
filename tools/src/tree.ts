@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { lstat, open, readdir } from 'node:fs/promises';
+import { lstat, open, readdir, type FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export type EntryKind = 'file' | 'dir' | 'symlink' | 'other';
@@ -36,21 +36,93 @@ export async function walkTree(root: string): Promise<Entry[]> {
   return entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
+// Extensão em minúsculas do último segmento do caminho, com o ponto (".sh"); "" quando não há.
+// Ponto e espaço no fim do nome saem antes, porque o Windows os descarta ("rodar.sh." vira
+// "rodar.sh").
+export function extensionOf(path: string): string {
+  const name = (path.split('/').at(-1) ?? '').replace(/[. ]+$/, '');
+  const dot = name.lastIndexOf('.');
+  return dot === -1 ? '' : name.slice(dot).toLowerCase();
+}
+
 const BINARY_PROBE_BYTES = 8192;
 
-// Lê os bytes crus de um arquivo regular. O_NOFOLLOW e o fstat garantem que o que foi aberto é o
-// arquivo, não um link simbólico apontando para outro lugar.
-export async function readBytes(path: string): Promise<Buffer> {
+// Abre um arquivo regular e passa o handle e o tamanho a `use`. O_NOFOLLOW e o fstat garantem que
+// o que foi aberto é o arquivo, não um link simbólico apontando para outro lugar.
+async function withRegularFile<T>(path: string, use: (handle: FileHandle, size: number) => Promise<T>): Promise<T> {
   const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
     const stats = await handle.stat();
     if (!stats.isFile()) {
       throw new Error(`não é arquivo regular: ${path}`);
     }
-    return await handle.readFile();
+    return await use(handle, stats.size);
   } finally {
     await handle.close();
   }
+}
+
+// Lê os bytes crus de um arquivo regular.
+export async function readBytes(path: string): Promise<Buffer> {
+  return withRegularFile(path, (handle) => handle.readFile());
+}
+
+export type SkillFileContent =
+  | { kind: 'text'; text: string }
+  // Extensão que não é de texto, com byte NUL nos primeiros 8 KB: fica fora da varredura.
+  | { kind: 'binary' }
+  // Extensão de texto com byte NUL, BOM UTF-16 ou UTF-8 inválido.
+  | { kind: 'not-utf8' }
+  // Seria varrido, mas passa de `maxBytes`.
+  | { kind: 'too-large' };
+
+const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+
+// Lê um arquivo de uma skill. Com extensão de texto (`textExtension`), o arquivo tem de ser UTF-8
+// válido, sem byte NUL em nenhuma posição e sem BOM UTF-16; senão é 'not-utf8', e não binário, para
+// não sair da varredura calado. Com outra extensão, vale a sondagem de binário de readText. Todo
+// arquivo que seria varrido tem no máximo `maxBytes`; o tamanho vem do fstat, então o arquivo
+// grande não chega a ser lido (só os primeiros 8 KB, para a sondagem de binário).
+export async function readSkillFile(
+  path: string,
+  { textExtension, maxBytes }: { textExtension: boolean; maxBytes: number },
+): Promise<SkillFileContent> {
+  const bytes = await withRegularFile(path, async (handle, size) => {
+    if (size <= maxBytes) {
+      return handle.readFile();
+    }
+    const probe = Buffer.alloc(BINARY_PROBE_BYTES);
+    const { bytesRead } = await handle.read(probe, 0, BINARY_PROBE_BYTES, 0);
+    return textExtension || !probe.subarray(0, bytesRead).includes(0) ? 'too-large' : 'binary';
+  });
+  if (bytes === 'too-large' || bytes === 'binary') {
+    return { kind: bytes };
+  }
+  // O arquivo pode ter crescido entre o fstat e a leitura.
+  if (bytes.length > maxBytes) {
+    return { kind: 'too-large' };
+  }
+  if (textExtension) {
+    const utf16Bom = bytes.length >= 2 && ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff));
+    if (utf16Bom || bytes.includes(0)) {
+      return { kind: 'not-utf8' };
+    }
+    try {
+      return { kind: 'text', text: withoutBom(UTF8.decode(bytes)) };
+    } catch {
+      return { kind: 'not-utf8' };
+    }
+  }
+  if (bytes.subarray(0, BINARY_PROBE_BYTES).includes(0)) {
+    return { kind: 'binary' };
+  }
+  return { kind: 'text', text: withoutBom(bytes.toString('utf8')) };
+}
+
+// O BOM UTF-8 no início sai antes de ler o frontmatter e de varrer: um SKILL.md com BOM vale o
+// mesmo que sem. Só o primeiro sai; um segundo BOM continua no texto.
+function withoutBom(text: string): string {
+  return text.startsWith('\uFEFF') ? text.slice(1) : text;
 }
 
 // Lê um arquivo regular como texto UTF-8. Devolve null quando o arquivo é binário (byte NUL nos

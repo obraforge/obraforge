@@ -1,7 +1,7 @@
 // Regras sobre a árvore de arquivos: ESTRUTURA (arquivos obrigatórios), SCRIPTS e LINK.
-import { PROJECT_PHASE } from '../constants.js';
+import { CODE_EXTENSIONS, PROJECT_PHASE } from '../constants.js';
 import type { Finding } from '../findings.js';
-import type { Entry } from '../tree.js';
+import { extensionOf, type Entry } from '../tree.js';
 
 // LINK vale para a árvore inteira da raiz: um link ou executável fora de uma pasta de skill
 // também não é seguido nem aceito.
@@ -38,18 +38,40 @@ export function checkStructure(skillDir: string, entries: ReadonlyMap<string, En
   if (!isFile('references/normas.md')) {
     missing.push('references/normas.md');
   }
-  return missing.map((path) => ({ code: 'ESTRUTURA', file: skillDir, message: `falta ${path}` }));
+  const findings: Finding[] = missing.map((path) => ({ code: 'ESTRUTURA', file: skillDir, message: `falta ${path}` }));
+  // Arquivo ou pasta oculto (nome começando com ".") some da listagem comum e da revisão do PR.
+  // A pasta oculta é acusada uma vez; o que está dentro dela continua sendo varrido.
+  for (const entry of entries.values()) {
+    if ((entry.path.split('/').at(-1) ?? '').startsWith('.')) {
+      findings.push({ code: 'ESTRUTURA', file: `${skillDir}/${entry.path}`, message: 'arquivo oculto dentro da skill' });
+    }
+  }
+  return findings;
 }
 
+// Antes da fase 3 não entra código na skill: nem a pasta scripts/ nem arquivo com extensão de
+// código em qualquer outra pasta.
 export function checkScripts(skillDir: string, entries: ReadonlyMap<string, Entry>): Finding[] {
-  if (PROJECT_PHASE >= 3 || !entries.has('scripts')) {
+  if (PROJECT_PHASE >= 3) {
     return [];
   }
-  return [
-    {
+  const findings: Finding[] = [];
+  if (entries.has('scripts')) {
+    findings.push({
       code: 'SCRIPTS',
       file: `${skillDir}/scripts`,
       message: `scripts/ não é permitido antes da fase 3 (fase atual do projeto: ${PROJECT_PHASE})`,
-    },
-  ];
+    });
+  }
+  for (const entry of entries.values()) {
+    const extension = extensionOf(entry.path);
+    if (entry.kind === 'file' && CODE_EXTENSIONS.includes(extension)) {
+      findings.push({
+        code: 'SCRIPTS',
+        file: `${skillDir}/${entry.path}`,
+        message: `arquivo de código (${extension}) não é permitido antes da fase 3 (fase atual do projeto: ${PROJECT_PHASE})`,
+      });
+    }
+  }
+  return findings;
 }

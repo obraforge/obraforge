@@ -2,7 +2,7 @@
 // mudança. O conjunto de códigos acusados tem de ser exatamente o esperado.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { AGENCIA_TERMS } from '../src/constants.js';
@@ -45,6 +45,7 @@ const CPF_WRONG_DV = `${CPF.slice(0, 10)}${(Number(CPF.at(-1)) + 1) % 10}`;
 
 const editSkill = (from: string, to: string): Mutation => (c) => replaceInFile(skillMd(c), from, to);
 const addToSkillBody = (line: string): Mutation => (c) => replaceInFile(skillMd(c), RESPONDER, `${RESPONDER}${line}\n`);
+const addToFrontmatter = (line: string): Mutation => editSkill(NAME_LINE, `${NAME_LINE}${line}`);
 const writeInSkill = (path: string, content: string | Buffer): Mutation => async (c) => {
   await mkdir(join(c.skill, path, '..'), { recursive: true });
   await writeFile(join(c.skill, path), content);
@@ -133,6 +134,19 @@ const cases: Array<[string, RuleCode[], Mutation]> = [
   ['curl partido por espaço de largura zero', ['AGENCIA'], addToSkillBody('Rode cu\u200brl antes.')],
   ['curl em letras de largura total', ['AGENCIA'], addToSkillBody('Rode ｃｕｒｌ antes.')],
 
+  // AGENCIA: sintaxe de execução de shell do Claude Code (roda antes de o modelo ler a skill)
+  ['!` no início da linha', ['AGENCIA'], addToSkillBody('!`date`')],
+  ['!` no meio da linha', ['AGENCIA'], addToSkillBody('Data de hoje: !`date`')],
+  ['!` colado em outro caractere', ['AGENCIA'], addToSkillBody('DATA=!`date`')],
+  ['!` em fixtures/esperado.md', ['AGENCIA'], (c) => appendLine(join(c.skill, 'fixtures', 'esperado.md'), '- Versão: !`date`')],
+  ['bloco ```! em references/', ['AGENCIA'], writeInSkill('references/ambiente.md', '# Ambiente\n\n```!\ndate\n```\n')],
+  ['bloco ``` ! com espaço', ['AGENCIA'], writeInSkill('references/ambiente.md', '# Ambiente\n\n``` !\ndate\n```\n')],
+  ['bloco ~~~!', ['AGENCIA'], writeInSkill('references/ambiente.md', '# Ambiente\n\n~~~!\ndate\n~~~\n')],
+  ['bloco ~~~ ! com espaço', ['AGENCIA'], writeInSkill('references/ambiente.md', '# Ambiente\n\n~~~ !\ndate\n~~~\n')],
+  ['bloco ````! com recuo e quatro crases', ['AGENCIA'], addToSkillBody('   ````!\n   date\n   ````')],
+  ['exclamação seguida de espaço e crase não é execução', [], addToSkillBody('Atenção! `Sigla` repetida é erro.')],
+  ['bloco de código comum não é execução', [], writeInSkill('references/modelo.md', '# Modelo\n\n```text\nsigla;significado\n```\n')],
+
   // DADO-PESSOAL: o que é fictício não é acusado
   ['CPF de dígito repetido', [], (c) => appendLine(entrada(c), 'XPT;teste;;;111.111.111-11')],
   ['CPF sem máscara com DV válido', ['DADO-PESSOAL'], (c) => appendLine(entrada(c), `XPT;teste;;;${CPF}`)],
@@ -167,6 +181,317 @@ for (const [name, expected, mutate] of cases) {
   });
 }
 
+// SCRIPTS: arquivo com extensão de código em qualquer pasta da skill, não só em scripts/. A lista
+// é repetida aqui de propósito, à parte da constante do validador.
+const CODE_EXTENSIONS = [
+  '.sh', '.bash', '.zsh', '.ps1', '.psm1', '.bat', '.cmd', '.py', '.js', '.mjs', '.cjs', '.ts', '.rb', '.pl',
+  '.php', '.exe', '.dll', '.so', '.dylib', '.jar', '.vbs', '.applescript',
+];
+
+for (const extension of CODE_EXTENSIONS) {
+  test(`SCRIPTS acusa assets/ferramenta${extension}`, async () => {
+    const c = await copyValidCase();
+    await writeInSkill(`assets/ferramenta${extension}`, 'x\n')(c);
+    assert.deepEqual(await codesOf(c.root), ['SCRIPTS']);
+  });
+}
+
+const scriptFileCases: Array<[string, RuleCode[], Mutation]> = [
+  ['arquivo de código na raiz da skill', ['SCRIPTS'], writeInSkill('rodar.sh', 'x\n')],
+  ['arquivo de código em fixtures/', ['SCRIPTS'], writeInSkill('fixtures/gerar.py', 'x\n')],
+  ['extensão de código em maiúsculas', ['SCRIPTS'], writeInSkill('references/rodar.PS1', 'x\n')],
+  ['extensão de código com ponto final', ['SCRIPTS'], writeInSkill('assets/rodar.sh.', 'x\n')],
+  ['extensão de texto depois da de código não é código', [], writeInSkill('assets/rodar.sh.md', '# Nota\n')],
+];
+
+for (const [name, expected, mutate] of scriptFileCases) {
+  test(name, async () => {
+    const c = await copyValidCase();
+    await mutate(c);
+    assert.deepEqual(await codesOf(c.root), expected);
+  });
+}
+
+test('SCRIPTS aponta o arquivo de código', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('assets/ferramenta.py', 'x\n')(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(findings.map((finding) => [finding.code, finding.file]), [['SCRIPTS', 'contexto/exemplo-valido/assets/ferramenta.py']]);
+});
+
+// Termos da ampliação da AGENCIA, repetidos aqui à parte da constante do validador. Cada um vai
+// em minúsculas; o laço sobre AGENCIA_TERMS, mais abaixo, confere em maiúsculas.
+const NETWORK_AND_EXECUTION_TERMS = [
+  'WebFetch', 'WebSearch', 'Invoke-RestMethod', 'iwr', 'irm', 'certutil', 'netcat', 'ncat', 'scp', 'sftp', 'rsync',
+  'ssh', 'telnet', 'git clone', 'npx', 'pip install', 'npm install', 'bash -c', 'sh -c', 'pwsh',
+];
+const AGENT_CONFIG_TERMS = [
+  'settings.local.json', 'CLAUDE.md', 'AGENTS.md', '.mcp.json', 'mcpServers', 'PreToolUse', 'PostToolUse',
+  'UserPromptSubmit', 'SessionStart',
+];
+
+for (const term of [...NETWORK_AND_EXECUTION_TERMS, ...AGENT_CONFIG_TERMS]) {
+  test(`AGENCIA acusa o termo novo ${term}`, async () => {
+    const c = await copyValidCase();
+    await addToSkillBody(`Exemplo: ${term.toLowerCase()} aqui.`)(c);
+    assert.deepEqual(await codesOf(c.root), ['AGENCIA']);
+  });
+}
+
+// Falso positivo: frase legítima de obra que tem de continuar sem achado. "NC" (não conformidade)
+// fica fora da lista de propósito; o termo novo não casa dentro de outra palavra.
+const legitimatePhrases: Array<[string, string]> = [
+  ['NC de checklist de obra', 'Registre a NC no checklist e feche a NC antes da medição.'],
+  ['registro de não conformidade (NC)', 'Abra o registro de não conformidade (NC) e anexe a foto.'],
+  ['NCs no plural', 'As NCs abertas entram no plano de ação da obra.'],
+  ['Lei de Hooke', 'A Lei de Hooke relaciona tensão e deformação no regime elástico.'],
+  ['irm dentro de palavra', 'Confirme a firma reconhecida no contrato de empreitada.'],
+  ['ncat dentro de palavra', 'Concatene as colunas de sigla e significado.'],
+];
+
+for (const [name, phrase] of legitimatePhrases) {
+  test(`AGENCIA não acusa frase legítima: ${name}`, async () => {
+    const c = await copyValidCase();
+    await addToSkillBody(phrase)(c);
+    assert.deepEqual(await codesOf(c.root), []);
+  });
+}
+
+test('termo de duas palavras com espaço duplo ou TAB entre elas', async () => {
+  const c = await copyValidCase();
+  await addToSkillBody('Rode git  clone e depois pip\tinstall.')(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.message]),
+    [['AGENCIA', 'referência proibida: "git clone", "pip install"']],
+  );
+});
+
+// Caracteres invisíveis ou separadores que partiriam um termo sem mudar o que o agente lê. Os três
+// últimos não estão na lista do pedido; são do mesmo grupo Unicode (Default_Ignorable_Code_Point).
+const INVISIBLE_CHARS: Array<[string, string]> = [
+  ['U+2028 (separador de linha)', '\u2028'],
+  ['U+2029 (separador de parágrafo)', '\u2029'],
+  ['U+0001', '\u0001'],
+  ['U+0008 (backspace)', '\u0008'],
+  ['U+000B (tabulação vertical)', '\u000B'],
+  ['U+000C (avanço de página)', '\u000C'],
+  ['U+001B (escape)', '\u001B'],
+  ['U+007F (delete)', '\u007F'],
+  ['U+0085 (NEL)', '\u0085'],
+  ['U+009F', '\u009F'],
+  ['U+034F (combining grapheme joiner)', '\u034F'],
+  ['U+FE00 (seletor de variação 1)', '\uFE00'],
+  ['U+FE0F (seletor de variação 16)', '\uFE0F'],
+  ['U+115F (preenchimento Hangul)', '\u115F'],
+  ['U+1160 (preenchimento Hangul)', '\u1160'],
+  ['U+3164 (preenchimento Hangul)', '\u3164'],
+  ['U+FFA0 (preenchimento Hangul de meia largura)', '\uFFA0'],
+  ['U+E0100 (seletor de variação 17)', '\u{E0100}'],
+  ['U+180B (seletor de variação mongol)', '\u180B'],
+  ['U+17B4 (vogal khmer invisível)', '\u17B4'],
+];
+
+for (const [label, char] of INVISIBLE_CHARS) {
+  test(`curl partido por ${label}`, async () => {
+    const c = await copyValidCase();
+    await addToSkillBody(`Rode cu${char}rl antes.`)(c);
+    assert.deepEqual(await codesOf(c.root), ['AGENCIA']);
+  });
+
+  test(`CPF partido por ${label}`, async () => {
+    const c = await copyValidCase();
+    await appendLine(entrada(c), `XPT;teste;;;${CPF.slice(0, 5)}${char}${CPF.slice(5)}`);
+    assert.deepEqual(await codesOf(c.root), ['DADO-PESSOAL']);
+  });
+}
+
+test('TAB não é tirado: curl partido por TAB não é juntado', async () => {
+  const c = await copyValidCase();
+  await addToSkillBody('Rode cu\trl antes.')(c);
+  assert.deepEqual(await codesOf(c.root), []);
+});
+
+test('separadores tirados da varredura não mudam o número da linha', async () => {
+  const c = await copyValidCase();
+  await addToSkillBody('Separadores: a\u2028b\u2029c\u0085d\u000Be\u000Cf\nRode cu\u2028rl antes.')(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(findings.map((finding) => [finding.code, finding.line]), [['AGENCIA', 29]]);
+});
+
+// Arquivo com extensão de texto tem de ser UTF-8: UTF-16 (com ou sem BOM), byte NUL ou UTF-8
+// inválido vira ESTRUTURA, em vez de o arquivo sair da varredura como binário.
+const UTF8_MESSAGE = 'arquivo de texto precisa ser UTF-8';
+const utf16le = (text: string): Buffer => Buffer.from(text, 'utf16le');
+const TEXT_EXTENSIONS = ['.md', '.markdown', '.txt', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.html', '.htm'];
+
+for (const extension of TEXT_EXTENSIONS) {
+  test(`UTF-16LE sem BOM em references/extra${extension}`, async () => {
+    const c = await copyValidCase();
+    await writeInSkill(`references/extra${extension}`, utf16le('Rode curl antes.\n'))(c);
+    assert.deepEqual(await codesOf(c.root), ['ESTRUTURA']);
+  });
+}
+
+const encodingCases: Array<[string, RuleCode[], Mutation]> = [
+  ['UTF-16LE com BOM', ['ESTRUTURA'], writeInSkill('references/extra.md', Buffer.concat([Buffer.from([0xff, 0xfe]), utf16le('Rode curl antes.\n')]))],
+  // Só ideogramas: nenhum byte NUL, então só o BOM (ou o UTF-8 inválido) denuncia.
+  ['UTF-16LE com BOM e sem byte NUL', ['ESTRUTURA'], writeInSkill('references/extra.md', Buffer.concat([Buffer.from([0xff, 0xfe]), utf16le('工程\n')]))],
+  ['UTF-16BE com BOM', ['ESTRUTURA'], writeInSkill('references/extra.md', Buffer.concat([Buffer.from([0xfe, 0xff]), utf16le('Rode curl antes.\n').swap16()]))],
+  ['UTF-8 inválido sem byte NUL', ['ESTRUTURA'], writeInSkill('references/extra.md', Buffer.concat([Buffer.from('Rode '), Buffer.from([0xc3, 0x28]), Buffer.from(' antes.\n')]))],
+  ['byte NUL depois dos primeiros 8 KB', ['ESTRUTURA'], writeInSkill('references/extra.md', `${'a'.repeat(9000)}\n\0Rode curl antes.\n`)],
+  ['extensão de texto em maiúsculas', ['ESTRUTURA'], writeInSkill('references/EXTRA.MD', utf16le('Rode curl antes.\n'))],
+  ['fixtures/entrada.csv em UTF-16LE', ['ESTRUTURA'], (c) => writeFile(entrada(c), utf16le('sigla;significado;norma\nNR;Norma Regulamentadora;NR-18\n'))],
+  // Limitação registrada: binário de outra extensão continua sem varredura.
+  ['.xlsx com UTF-16 não é varrido', [], writeInSkill('assets/modelo.xlsx', utf16le('Rode curl antes.\n'))],
+  ['.pdf com UTF-16 não é varrido', [], writeInSkill('assets/manual.pdf', utf16le('Rode curl antes.\n'))],
+  ['.png com UTF-16 não é varrido', [], writeInSkill('assets/foto.png', utf16le('Rode curl antes.\n'))],
+];
+
+for (const [name, expected, mutate] of encodingCases) {
+  test(name, async () => {
+    const c = await copyValidCase();
+    await mutate(c);
+    assert.deepEqual(await codesOf(c.root), expected);
+  });
+}
+
+test('arquivo de texto que não é UTF-8 aponta o arquivo e a mensagem', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('references/extra.md', utf16le('Rode curl antes.\n'))(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.file, finding.message]),
+    [['ESTRUTURA', 'contexto/exemplo-valido/references/extra.md', UTF8_MESSAGE]],
+  );
+});
+
+test('SKILL.md em UTF-16LE gera um único achado, o de UTF-8', async () => {
+  const c = await copyValidCase();
+  await writeFile(skillMd(c), utf16le(await readFile(skillMd(c), 'utf8')));
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.file, finding.message]),
+    [['ESTRUTURA', 'contexto/exemplo-valido/SKILL.md', UTF8_MESSAGE]],
+  );
+});
+
+// Tetos de tamanho, verificados antes do parse do YAML e da varredura. O tamanho do frontmatter é
+// o do YAML entre as linhas ---, em bytes UTF-8.
+const FRONTMATTER_MAX = 16 * 1024;
+const TEXT_FILE_MAX = 1024 * 1024;
+const FRONTMATTER_BASE = Buffer.byteLength(`${NAME_LINE}${DESCRIPTION_LINE}${METADATA_BLOCK}`);
+// Uma linha license que deixa o YAML com `size` bytes: o YAML é a base menos o \n final, mais a linha.
+const frontmatterOfSize = (size: number): Mutation => addToFrontmatter(`license: ${'a'.repeat(size - FRONTMATTER_BASE - 'license: '.length)}\n`);
+
+const sizeCases: Array<[string, RuleCode[], Mutation]> = [
+  ['frontmatter com 16 KiB', [], frontmatterOfSize(FRONTMATTER_MAX)],
+  ['frontmatter com 16 KiB e 1 byte', ['ESTRUTURA'], frontmatterOfSize(FRONTMATTER_MAX + 1)],
+  ['arquivo de texto com 1 MiB', [], writeInSkill('references/grande.md', 'x\n'.repeat(TEXT_FILE_MAX / 2))],
+  ['arquivo de texto com 1 MiB e 1 byte', ['ESTRUTURA'], writeInSkill('references/grande.md', `${'x\n'.repeat(TEXT_FILE_MAX / 2)}x`)],
+  ['arquivo de outra extensão, sem byte NUL, com mais de 1 MiB', ['ESTRUTURA'], writeInSkill('assets/dados.dat', 'x\n'.repeat(TEXT_FILE_MAX / 2 + 1))],
+  ['binário com mais de 1 MiB não é varrido', [], writeInSkill('assets/dados.bin', Buffer.concat([Buffer.from([0]), Buffer.alloc(TEXT_FILE_MAX, 0x61)]))],
+];
+
+for (const [name, expected, mutate] of sizeCases) {
+  test(name, async () => {
+    const c = await copyValidCase();
+    await mutate(c);
+    assert.deepEqual(await codesOf(c.root), expected);
+  });
+}
+
+test('SKILL.md com mais de 1 MiB gera um único achado, o do teto', async () => {
+  const c = await copyValidCase();
+  await appendLine(skillMd(c), 'x\n'.repeat(TEXT_FILE_MAX / 2));
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.file, finding.message]),
+    [['ESTRUTURA', 'contexto/exemplo-valido/SKILL.md', 'arquivo de texto com mais de 1 MiB (1048576 bytes)']],
+  );
+});
+
+test('frontmatter de 50 mil chaves sai em menos de 1 s, com ESTRUTURA', async () => {
+  const c = await copyValidCase();
+  const keys = Array.from({ length: 50_000 }, (_, index) => `k${index}: v\n`).join('');
+  await editSkill(NAME_LINE, `${NAME_LINE}${keys}`)(c);
+  const start = performance.now();
+  const findings = await validateSkillsRoot(c.root);
+  const elapsed = performance.now() - start;
+  assert.ok(elapsed < 1000, `levou ${Math.round(elapsed)} ms`);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.file, finding.message]),
+    [['ESTRUTURA', 'contexto/exemplo-valido/SKILL.md', 'frontmatter com mais de 16 KiB (16384 bytes)']],
+  );
+});
+
+// BOM UTF-8 no início de arquivo de texto sai antes de ler o frontmatter e de varrer.
+const BOM = '\uFEFF';
+const prependToFile = (path: (c: Case) => string, prefix: string): Mutation => async (c) => {
+  await writeFile(path(c), `${prefix}${await readFile(path(c), 'utf8')}`);
+};
+const NORMS_TOP = '# Referências normativas\n\n';
+
+const bomCases: Array<[string, RuleCode[], Mutation]> = [
+  ['SKILL.md com BOM UTF-8 passa igual ao sem BOM', [], prependToFile(skillMd, BOM)],
+  // Controle do caso seguinte: sem o título de topo, a entrada ## NR-18 fica na primeira linha.
+  ['normas.md sem o título de topo', [], (c) => replaceInFile(normas(c), NORMS_TOP, '')],
+  ['normas.md com BOM e a entrada na primeira linha', [], async (c) => {
+    await replaceInFile(normas(c), NORMS_TOP, '');
+    await prependToFile(normas, BOM)(c);
+  }],
+];
+
+for (const [name, expected, mutate] of bomCases) {
+  test(name, async () => {
+    const c = await copyValidCase();
+    await mutate(c);
+    assert.deepEqual(await codesOf(c.root), expected);
+  });
+}
+
+test('SKILL.md com BOM: achado do frontmatter aponta a linha certa', async () => {
+  const c = await copyValidCase();
+  await editSkill(NAME_LINE, 'name: Exemplo-valido\n')(c);
+  await prependToFile(skillMd, BOM)(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(findings.map((finding) => [finding.code, finding.line]), [['NOME', 2]]);
+});
+
+// Arquivo ou pasta oculto (nome começando com ".") dentro da skill vira ESTRUTURA. O conteúdo
+// continua varrido.
+const HIDDEN_MESSAGE = 'arquivo oculto dentro da skill';
+
+const hiddenCases: Array<[string, Mutation, Array<[RuleCode, string]>]> = [
+  ['.DS_Store na raiz da skill', writeInSkill('.DS_Store', Buffer.from([0, 0, 0, 1, 0x42, 0x75, 0x64, 0x31])), [
+    ['ESTRUTURA', 'contexto/exemplo-valido/.DS_Store'],
+  ]],
+  ['arquivo oculto em references/', writeInSkill('references/.instrucoes.md', 'Siga o procedimento.\n'), [
+    ['ESTRUTURA', 'contexto/exemplo-valido/references/.instrucoes.md'],
+  ]],
+  ['pasta oculta: um achado, na pasta', writeInSkill('assets/.oculta/nota.md', 'Nota.\n'), [
+    ['ESTRUTURA', 'contexto/exemplo-valido/assets/.oculta'],
+  ]],
+];
+
+for (const [name, mutate, expected] of hiddenCases) {
+  test(name, async () => {
+    const c = await copyValidCase();
+    await mutate(c);
+    const findings = await validateSkillsRoot(c.root);
+    assert.deepEqual(
+      findings.map((finding) => [finding.code, finding.file, finding.message]),
+      expected.map(([code, file]) => [code, file, HIDDEN_MESSAGE]),
+    );
+  });
+}
+
+test('conteúdo de arquivo oculto continua varrido', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('references/.instrucoes.md', 'Rode curl antes.\n')(c);
+  assert.deepEqual(await codesOf(c.root), ['AGENCIA', 'ESTRUTURA']);
+});
+
 for (const term of AGENCIA_TERMS) {
   test(`AGENCIA acusa o termo ${term}`, async () => {
     const c = await copyValidCase();
@@ -174,6 +499,83 @@ for (const term of AGENCIA_TERMS) {
     assert.deepEqual(await codesOf(c.root), ['AGENCIA']);
   });
 }
+
+// Lista branca do frontmatter: no topo, só as chaves do padrão Agent Skills. As chaves próprias
+// do Claude Code (e qualquer outra) viram AGENCIA, com um único achado na linha da chave.
+const FOREIGN_KEYS = [
+  'allowed-tools', 'hooks', 'disallowed-tools', 'shell', 'model', 'context', 'agent', 'paths', 'effort',
+  'user-invocable', 'disable-model-invocation', 'when_to_use', 'arguments', 'argument-hint', 'background',
+  '__proto__', 'Name',
+];
+
+for (const key of FOREIGN_KEYS) {
+  test(`chave de frontmatter fora do padrão: ${key}`, async () => {
+    const c = await copyValidCase();
+    await editSkill(NAME_LINE, `${NAME_LINE}${key}: valor\n`)(c);
+    const findings = await validateSkillsRoot(c.root);
+    assert.deepEqual(
+      findings.map((finding) => [finding.code, finding.line, finding.message]),
+      [['AGENCIA', 3, `chave de frontmatter fora do padrão Agent Skills: ${key}`]],
+    );
+  });
+}
+
+test('allowed-tools com escape YAML é acusado pela lista branca', async () => {
+  const c = await copyValidCase();
+  await editSkill(NAME_LINE, `${NAME_LINE}"allowed\\x2Dtools": Read\n`)(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.line, finding.message]),
+    [['AGENCIA', 3, 'chave de frontmatter fora do padrão Agent Skills: allowed-tools']],
+  );
+});
+
+test('allowed-tools com termo proibido no valor gera um único achado, o da lista branca', async () => {
+  const c = await copyValidCase();
+  await editSkill(NAME_LINE, `${NAME_LINE}allowed-tools: Bash(curl *)\n`)(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.line, finding.message]),
+    [['AGENCIA', 3, 'chave de frontmatter fora do padrão Agent Skills: allowed-tools']],
+  );
+});
+
+const LICENSE_LINE = 'license: MIT\n';
+const COMPATIBILITY_LINE = 'compatibility: Qualquer agente compatível com o padrão Agent Skills.\n';
+
+const frontmatterFieldCases: Array<[string, RuleCode[], Mutation]> = [
+  ['license e compatibility válidos', [], addToFrontmatter(`${LICENSE_LINE}${COMPATIBILITY_LINE}`)],
+  ['license que não é texto', ['METADATA'], addToFrontmatter('license: 42\n')],
+  ['license vazia', ['METADATA'], addToFrontmatter('license: ""\n')],
+  ['license só com espaços', ['METADATA'], addToFrontmatter('license: "   "\n')],
+  ['license sem valor (nulo)', ['METADATA'], addToFrontmatter('license:\n')],
+  ['license em lista', ['METADATA'], addToFrontmatter('license: [MIT]\n')],
+  ['compatibility que não é texto', ['METADATA'], addToFrontmatter('compatibility: 5\n')],
+  ['compatibility vazia', ['METADATA'], addToFrontmatter('compatibility: ""\n')],
+  // 500 code points de emoji são 1000 unidades UTF-16: conta code point.
+  ['compatibility com 500 caracteres', [], addToFrontmatter(`compatibility: ${'🏗'.repeat(500)}\n`)],
+  ['compatibility com 501 caracteres', ['METADATA'], addToFrontmatter(`compatibility: ${'🏗'.repeat(501)}\n`)],
+  ['chave extra de texto no metadata', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  outra: "x"\n`)],
+  ['chave do Claude Code dentro do metadata', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  paths: "*.md"\n`)],
+];
+
+for (const [name, expected, mutate] of frontmatterFieldCases) {
+  test(name, async () => {
+    const c = await copyValidCase();
+    await mutate(c);
+    assert.deepEqual(await codesOf(c.root), expected);
+  });
+}
+
+test('chave extra do metadata aponta a linha e o nome da chave', async () => {
+  const c = await copyValidCase();
+  await editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  outra: "x"\n`)(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.line, finding.message]),
+    [['METADATA', 8, 'metadata.outra fora da lista (só obraforge-area, obraforge-fase e obraforge-versao)']],
+  );
+});
 
 test('allowed-tools no frontmatter gera um único achado', async () => {
   const c = await copyValidCase();

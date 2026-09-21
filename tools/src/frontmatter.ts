@@ -8,6 +8,7 @@ import {
   type ParseOptions,
   type SchemaOptions,
 } from 'yaml';
+import { MAX_FRONTMATTER_BYTES } from './constants.js';
 
 export type FrontmatterData = Record<string, unknown>;
 
@@ -51,8 +52,15 @@ export function parseFrontmatter(lines: readonly string[]): Frontmatter {
   // O YAML começa na linha 2 do arquivo.
   const toFileLine = (yamlLine: number): number => yamlLine + 1;
 
+  // Teto antes do parse: o custo do parser cresce com o número de chaves (um frontmatter de 50 mil
+  // chaves levava cerca de 10 s).
+  const yaml = lines.slice(1, closing).join('\n');
+  if (Buffer.byteLength(yaml, 'utf8') > MAX_FRONTMATTER_BYTES) {
+    return { ok: false, message: `frontmatter com mais de 16 KiB (${MAX_FRONTMATTER_BYTES} bytes)`, line: 1, body };
+  }
+
   const lineCounter = new LineCounter();
-  const doc = parseDocument(lines.slice(1, closing).join('\n'), { ...PARSE_OPTIONS, lineCounter });
+  const doc = parseDocument(yaml, { ...PARSE_OPTIONS, lineCounter });
   const problem = doc.errors[0] ?? doc.warnings[0];
   if (problem !== undefined) {
     return {

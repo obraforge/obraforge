@@ -1,4 +1,5 @@
-// Regras sobre os campos do frontmatter: NOME, DESCRICAO e METADATA.
+// Regras sobre os campos do frontmatter: NOME, DESCRICAO e METADATA (que também cobre license e
+// compatibility).
 import { AREAS } from '../areas.js';
 import type { Finding } from '../findings.js';
 import { isPlainObject, ownValue, type FrontmatterData } from '../frontmatter.js';
@@ -13,6 +14,7 @@ interface Context {
 const NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const NAME_MAX = 64;
 const DESCRIPTION_MAX = 1024;
+const COMPATIBILITY_MAX = 500;
 
 // Regex oficial do SemVer 2.0.0 (semver.org, versão com grupos numerados para JavaScript).
 const SEMVER_PATTERN =
@@ -71,6 +73,27 @@ export function checkDescription(data: FrontmatterData, ctx: Context): Finding[]
   return [];
 }
 
+// license e compatibility são opcionais no padrão Agent Skills. Quando aparecem, são texto não
+// vazio; compatibility tem no máximo 500 caracteres (code points).
+export function checkOptionalFields(data: FrontmatterData, ctx: Context): Finding[] {
+  const findings: Finding[] = [];
+  for (const key of ['license', 'compatibility']) {
+    if (!Object.hasOwn(data, key)) {
+      continue;
+    }
+    const value = ownValue(data, key);
+    const finding = (message: string): void => {
+      findings.push({ code: 'METADATA', file: ctx.file, line: ctx.lineOfKey([key]), message });
+    };
+    if (typeof value !== 'string' || value.trim() === '') {
+      finding(`${key} deve ser texto não vazio`);
+    } else if (key === 'compatibility' && [...value].length > COMPATIBILITY_MAX) {
+      finding(`compatibility com ${[...value].length} caracteres (máximo ${COMPATIBILITY_MAX})`);
+    }
+  }
+  return findings;
+}
+
 export function checkMetadata(data: FrontmatterData, ctx: Context): Finding[] {
   const metadata = ownValue(data, 'metadata');
   if (!isPlainObject(metadata)) {
@@ -90,6 +113,12 @@ export function checkMetadata(data: FrontmatterData, ctx: Context): Finding[] {
   for (const key of METADATA_KEYS) {
     if (!Object.hasOwn(metadata, key)) {
       finding(key, `falta metadata.${key}`);
+    }
+  }
+  // Lista branca: o metadata só leva os campos do obraforge.
+  for (const key of Object.keys(metadata)) {
+    if (!(METADATA_KEYS as readonly string[]).includes(key)) {
+      finding(key, `metadata.${key} fora da lista (só obraforge-area, obraforge-fase e obraforge-versao)`);
     }
   }
 
