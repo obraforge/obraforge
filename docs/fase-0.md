@@ -22,6 +22,20 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 **Push:** a `main` foi enviada em 21/09/2026 com autorização do dono; daqui em diante toda mudança entra por PR (D-012).
 
+## O teste da fase 0 (§10 do plano) — 21/09/2026
+
+| # | Item | Estado | Evidência |
+| --- | --- | --- | --- |
+| 1 | Clone limpo verde em Node 22 e 24 | ✅ | Local e no job `testes` (matriz 22 e 24) |
+| 2 | PR A (skill válida, catálogo regenerado) → verde | ✅ | [#4](https://github.com/obraforge/obraforge/pull/4). A primeira rodada deu vermelho no `testes`: três testes presumiam `skills/` vazio. Corrigido no [#7](https://github.com/obraforge/obraforge/pull/7); a rodada seguinte ficou verde nos seis checks |
+| 3 | PR B (sem `fixtures/`) → vermelho só no `validar`, com `ESTRUTURA` | ✅ | [#5](https://github.com/obraforge/obraforge/pull/5): `ESTRUTURA contexto/exemplo-fase-0 — falta fixtures/entrada.*` |
+| 4 | PR C (catálogo não regenerado) → vermelho só no `catalogo`, com o diff | ✅ | [#6](https://github.com/obraforge/obraforge/pull/6): `catalog.json desatualizado`, diff de `"skills": []` |
+| 5 | Os três fechados sem merge, links aqui | ✅ | Acima |
+| 6 | Push direto em `main` recusado | ✅ | `GH013: Changes must be made through a pull request`, vindo do admin |
+| 7 | Tag `v0.0.1` publica; `npx obraforge@0.0.1 --version` imprime `0.0.1`; provenance; SBOM na release | ⬜ | Depende do C2 e da data da `0.0.1` no CHANGELOG |
+| 8 | Tag de versão divergente recusada antes de publicar | ⬜ | Depois do C2 |
+| 9 | `gh secret list` vazio; Scorecard com 10 nos cinco checks do D2 | ✅ | Segredos: nenhum. Scorecard sobre `415f132`: 10 nos cinco |
+
 ## Pendências do dono
 
 1. **2FA obrigatório na org**, pela interface (Settings → Authentication security).
