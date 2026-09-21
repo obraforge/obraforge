@@ -49,14 +49,14 @@ Cada regra tem um código estável, exibido na saída junto com o arquivo e a li
 
 | Código | Falha quando |
 | --- | --- |
-| `ESTRUTURA` | Falta `SKILL.md`, `fixtures/entrada.*`, `fixtures/esperado.md` ou `references/normas.md` |
+| `ESTRUTURA` | Falta `SKILL.md`, `fixtures/entrada.*`, `fixtures/esperado.md` ou `references/normas.md`; frontmatter ilegível ou com mais de 16 KiB; arquivo que não é texto UTF-8 nem tem extensão binária aceita; texto com mais de 1 MiB ou binário com mais de 5 MiB; arquivo ou pasta oculto, ou com caractere invisível no nome |
 | `NOME` | `name` fora da regra do padrão, diferente do nome da pasta, ou presente em `skills/retiradas.txt` |
 | `DESCRICAO` | `description` vazia ou com mais de 1024 caracteres |
-| `METADATA` | Falta `obraforge-area`, `obraforge-fase` ou `obraforge-versao`; área fora das 23 áreas mais `contexto`; área diferente da pasta pai; fase fora de `1` a `4`; versão fora do semver |
-| `SCRIPTS` | Pasta `scripts/` presente enquanto o projeto estiver antes da fase 3 |
+| `METADATA` | Falta `obraforge-area`, `obraforge-fase` ou `obraforge-versao`; chave extra no `metadata`; área fora das 23 áreas mais `contexto`; área diferente da pasta pai; fase fora de `1` a `4`; versão fora do semver; `license` ou `compatibility` com tipo inválido |
+| `SCRIPTS` | Pasta `scripts/`, ou arquivo com extensão de código (`.sh`, `.py`, `.js`, `.ps1`...) em qualquer pasta da skill, enquanto o projeto estiver antes da fase 3 |
 | `NORMA` | Citação no `SKILL.md` que casa com o padrão de norma (`NR-nn`, `NBR nnnn`, `Lei n.nnn/aaaa`, `Resolução ... nº`, `Decreto n.nnn/aaaa`) sem entrada correspondente em `references/normas.md`, ou entrada sem título, ano ou fonte |
 | `AVISO` | Falta, no `SKILL.md`, o aviso-padrão de que a skill não substitui o responsável técnico (texto exato no template em `docs/template-skill/`) |
-| `AGENCIA` | Frontmatter com `allowed-tools`; corpo com referência a hook, `settings.json`, permissão do agente, ou comando de rede (`curl`, `wget`, `Invoke-WebRequest`, `fetch(`). Lista inicial versionada em `tools/`; toda ampliação entra por PR |
+| `AGENCIA` | Chave de frontmatter fora do padrão Agent Skills (só `name`, `description`, `license`, `compatibility` e `metadata`); sintaxe de execução de shell do agente (`` !` `` ou bloco cercado aberto com `!`); referência a hook, configuração ou permissão do agente, ou comando de rede e execução, numa lista versionada em `tools/src/constants.ts` e ampliada por PR. A lista é um alarme, não uma cerca completa: a revisão humana continua obrigatória ([ADR-0006](docs/adr/0006-endurecimento-do-validador.md)) |
 | `LINK` | Arquivo simbólico ou executável dentro da pasta da skill |
 | `DADO-PESSOAL` | CPF ou CNPJ com dígito verificador válido; e-mail fora de `example.com`, `example.org` ou `example.net`; telefone fora do formato fictício `(00) 00000-0000` |
 

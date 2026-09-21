@@ -28,7 +28,11 @@ metadata:
 
 - `name` é igual ao nome da pasta; a área é igual à pasta pai e está na lista fechada de áreas.
 - Toda skill confere, estrutura, explica ou dá modelo. Nunca produz o entregável de engenharia fim a fim.
-- Sem hook, sem permissão de agente, sem rede, e sem pasta `scripts/` antes da fase 3.
+- Sem hook, sem permissão de agente, sem rede, e sem código (pasta `scripts/` ou arquivo `.sh`,
+  `.py`, `.js`...) antes da fase 3.
+- Frontmatter só com `name`, `description`, `license`, `compatibility` e `metadata`.
+- Texto em UTF-8; binário só nas extensões aceitas (planilha sem macro, PDF, imagem, desenho e
+  formatos de obra), sem `.zip`; sem arquivo oculto.
 - Norma paga não é transcrita: `normas.md` indica onde adquirir.
 
 O validador (`npm run validar`) recusa a skill que não segue este
