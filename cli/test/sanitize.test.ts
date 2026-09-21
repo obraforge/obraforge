@@ -26,3 +26,13 @@ test('preserva texto comum em português', () => {
   const input = 'Confere planilha orçamentária de obra (NBR 12.721)';
   assert.equal(sanitize(input), input);
 });
+
+test('quebra de linha, tab e outros espaços de controle viram um espaço, sem colar frases', () => {
+  const input = 'Confere a estrutura.\nUse quando…\n';
+  assert.equal(sanitize(input), 'Confere a estrutura. Use quando…');
+});
+
+test('espaços em sequência, inclusive os que vêm de quebras de linha seguidas, colapsam em um só', () => {
+  const input = 'antes\r\n\t\n  depois';
+  assert.equal(sanitize(input), 'antes depois');
+});

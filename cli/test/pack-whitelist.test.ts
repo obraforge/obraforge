@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { basename, join, relative, sep } from 'node:path';
 import { test } from 'node:test';
 
 // npm roda os testes do workspace com cwd = cli/ (ver AGENTS.md). O prepack copia da raiz do
@@ -37,15 +37,20 @@ test('npm pack leva exatamente a lista branca: nada de dist/test, scripts, tscon
 
   // A lista branca esperada, construída a partir do estado real do repositório: package.json
   // (sempre incluído pelo npm), README.md, LICENSE, catalog.json (copiados pelo prepack a partir
-  // da raiz), todo arquivo dentro de skills/ (idem) e todo .js compilado em dist/src/.
+  // da raiz) e todo arquivo dentro de skills/ (idem).
   const expected = new Set<string>(['package.json', 'README.md', 'LICENSE', 'catalog.json']);
 
   const cliDir = process.cwd();
   for (const file of listFilesRecursive(join(cliDir, 'skills'))) {
     expected.add(toPosix(relative(cliDir, file)));
   }
-  for (const file of listFilesRecursive(join(cliDir, 'dist', 'src'))) {
-    expected.add(toPosix(relative(cliDir, file)));
+  // dist/src/ não é lido do disco: se fosse, um arquivo obsoleto ali (sobra de um rename local, por
+  // exemplo) entraria tanto no tarball quanto no esperado e o teste ficaria circular, sempre verde.
+  // A fonte da verdade é cli/src/*.ts, mapeando cada X.ts para o dist/src/X.js que o build gera.
+  for (const file of readdirSync(join(cliDir, 'src'), { withFileTypes: true })) {
+    if (file.isFile() && file.name.endsWith('.ts')) {
+      expected.add(`dist/src/${basename(file.name, '.ts')}.js`);
+    }
   }
 
   const missing = [...expected].filter((path) => !packed.has(path));
