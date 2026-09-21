@@ -200,14 +200,101 @@ test('skills/ real do repositório gera uma entrada por pasta de skill', async (
   assert.deepEqual(catalog.areas, AREAS);
 });
 
-test('references são os headings "## " de normas.md, na ordem do arquivo', async () => {
+test('references são as chaves canônicas dos headings "## " de normas.md, na ordem do arquivo, sem duplicatas', async () => {
   const root = await makeTempDir();
   const skillsRoot = join(root, 'skills');
-  await writeSkill(skillsRoot, 'contexto', 'com-normas', { normas: ['NR-12', 'Lei 14.133/2021'] });
+  // "NR-12" e "Lei 14.133/2021" já nascem na forma canônica; "ABNT NBR-6118:2014" tem de virar
+  // "NBR 6118" (mesma chave que "NR-12" usaria se citada de novo, aqui só para provar a
+  // canonicalização); um heading repetido com a mesma chave não duplica a lista; um heading que
+  // não casa com nenhuma citação (ex.: "Notas gerais") fica de fora.
+  await writeSkill(skillsRoot, 'contexto', 'com-normas', {
+    normas: ['NR-12', 'Lei 14.133/2021', 'ABNT NBR-6118:2014', 'Lei nº 14.133/2021', 'Notas gerais'],
+  });
   const pkg = await writePackage(root, '9.9.9');
   const catalog = await buildCatalog(skillsRoot, pkg);
   const entry = catalog.skills.find((skill) => skill.name === 'com-normas');
-  assert.deepEqual(entry?.references, ['NR-12', 'Lei 14.133/2021']);
+  assert.deepEqual(entry?.references, ['NR-12', 'Lei 14133', 'NBR 6118']);
+});
+
+test('SKILL.md com BOM UTF-8 no início não quebra a leitura do frontmatter', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  const dir = await writeSkill(skillsRoot, 'contexto', 'com-bom');
+  const original = await readFile(join(dir, 'SKILL.md'), 'utf8');
+  await writeFile(join(dir, 'SKILL.md'), `﻿${original}`);
+  const pkg = await writePackage(root, '9.9.9');
+
+  const catalog = await buildCatalog(skillsRoot, pkg);
+  const entry = catalog.skills.find((skill) => skill.name === 'com-bom');
+  assert.ok(entry, 'esperava uma entrada mesmo com BOM no início do SKILL.md');
+  assert.equal(entry?.area, 'contexto');
+  assert.equal(entry?.phase, 1);
+  assert.equal(entry?.version, '1.0.0');
+});
+
+test('arquivo ou pasta oculta (nome começando com ".") não entra no hash', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  const dir = await writeSkill(skillsRoot, 'contexto', 'com-oculto', { extraFiles: { 'fixtures/entrada.txt': 'conteudo' } });
+  const pkg = await writePackage(root, '9.9.9');
+  const before = await buildCatalog(skillsRoot, pkg);
+  const hashBefore = before.skills.find((skill) => skill.name === 'com-oculto')?.sha256;
+  assert.ok(hashBefore);
+
+  await writeFile(join(dir, '.DS_Store'), 'lixo-de-finder');
+  await mkdir(join(dir, '.oculta'), { recursive: true });
+  await writeFile(join(dir, '.oculta', 'arquivo.txt'), 'não deveria entrar no hash');
+
+  const after = await buildCatalog(skillsRoot, pkg);
+  const hashAfter = after.skills.find((skill) => skill.name === 'com-oculto')?.sha256;
+  assert.equal(hashAfter, hashBefore);
+});
+
+test('caminho do arquivo no hash é normalizado em NFC: nome criado em NFD e em NFC dão o mesmo hash', async () => {
+  const nameNfc = 'orçamento.csv';
+  const nameNfd = nameNfc.normalize('NFD');
+  assert.notEqual(
+    Buffer.from(nameNfd, 'utf8').toString('hex'),
+    Buffer.from(nameNfc, 'utf8').toString('hex'),
+    'pré-condição do teste: NFD e NFC têm bytes UTF-8 diferentes para o mesmo texto visível',
+  );
+
+  const rootA = await makeTempDir();
+  const rootB = await makeTempDir();
+  const skillsA = join(rootA, 'skills');
+  const skillsB = join(rootB, 'skills');
+
+  // Mesmo conteúdo de SKILL.md (mesmo "name" no frontmatter) nas duas pastas, para o hash só
+  // variar em função do nome do arquivo extra normalizado ou não.
+  const dirA = join(skillsA, 'contexto', 'skill-nfd');
+  await mkdir(dirA, { recursive: true });
+  await writeFile(join(dirA, 'SKILL.md'), skillMd('contexto', 'skill-fixa'));
+  await writeFile(join(dirA, nameNfd), 'mesmo conteudo');
+
+  const dirB = join(skillsB, 'contexto', 'skill-nfc');
+  await mkdir(dirB, { recursive: true });
+  await writeFile(join(dirB, 'SKILL.md'), skillMd('contexto', 'skill-fixa'));
+  await writeFile(join(dirB, nameNfc), 'mesmo conteudo');
+
+  const pkgA = await writePackage(rootA, '9.9.9');
+  const pkgB = await writePackage(rootB, '9.9.9');
+  const catalogA = await buildCatalog(skillsA, pkgA);
+  const catalogB = await buildCatalog(skillsB, pkgB);
+
+  assert.equal(catalogA.skills[0]?.sha256, catalogB.skills[0]?.sha256);
+});
+
+test('formatCatalogJson termina com exatamente um "\\n" e usa indentação de 2 espaços', () => {
+  const json = formatCatalogJson({ version: '1.0.0', areas: ['contexto'], skills: [] });
+  assert.ok(json.endsWith('\n'), 'deveria terminar com \\n');
+  assert.ok(!json.endsWith('\n\n'), 'deveria terminar com exatamente um \\n');
+  assert.equal(json, '{\n  "version": "1.0.0",\n  "areas": [\n    "contexto"\n  ],\n  "skills": []\n}\n');
+});
+
+test('catalog.json commitado na raiz termina com "\\n"', async () => {
+  const text = await readFile(join(REPO_ROOT, 'catalog.json'), 'utf8');
+  assert.ok(text.endsWith('\n'), 'deveria terminar com \\n');
+  assert.ok(!text.endsWith('\n\n'), 'deveria terminar com exatamente um \\n');
 });
 
 test('campo necessário ausente no metadata faz o gerador falhar com mensagem', async () => {
