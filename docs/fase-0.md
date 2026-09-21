@@ -24,12 +24,13 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 ## Pendências do dono
 
-1. **Código de conduta, contato de aplicação:** o arquivo tem `[CONTATO A DEFINIR PELO DONO]`.
-   O push espera esse contato (decisão de 21/09/2026).
-2. **Revisão dos commits e autorização do push.**
+1. **Autorização do push.**
+2. **2FA obrigatório na org**, pela interface (Settings → Authentication security).
+3. **C2** no npm, pelo roteiro conferido na doc do npm.
 
-Resolvidas em 21/09/2026: o código de conduta fica no Contributor Covenant 3.0 em inglês; as
-actions de terceiros dos workflows estão autorizadas, com o `osv` rodando a action composta direto.
+Resolvidas em 21/09/2026: o código de conduta fica no Contributor Covenant 3.0 em inglês, com
+contato `obraforge+contato@gmail.com` (caixa dedicada do projeto, fora do login de GitHub e npm);
+as actions de terceiros dos workflows estão autorizadas, com o `osv` rodando a action composta direto.
 
 ## Decisões da sessão 1
 
@@ -53,7 +54,7 @@ actions de terceiros dos workflows estão autorizadas, com o `osv` rodando a act
 
 ## Para destravar o GitHub (checkpoint de 21/09/2026)
 
-1. Contato do código de conduta e autorização do push (as actions já estão autorizadas).
+1. Autorização do push (o contato do código de conduta e as actions já estão resolvidos).
 2. Depois do push: conferir os nomes reais dos checks e então o A3 (2FA da org com os dois
    métodos do dono conferidos antes, membros sem criar repositório, ruleset da `main` da D-012,
    Actions com token só leitura). O ruleset de tags `v*` já existe (ADR-0003).
