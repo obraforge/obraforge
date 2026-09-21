@@ -21,4 +21,5 @@ Decisões* (ChatPRD, v1.1 de 13/09/2026). Onde um ADR divergir de uma decisão D
 | [0001](0001-execucao-em-github-issues-e-projects.md) | Execução em GitHub Issues e Projects | Aceito |
 | [0002](0002-esm-e-build-com-tsc-sem-bundler.md) | ESM e build com `tsc`, sem bundler | Aceito; revoga em parte a D-004 |
 | [0003](0003-ruleset-de-tags-de-release.md) | Ruleset de tags de release | Aceito; complementa a D-012 |
-| [0004](0004-token-permissions-9-no-release.md) | Token-Permissions em 9 por causa do job de release | Aceito; revoga em parte o critério do D2 |
+| [0004](0004-token-permissions-9-no-release.md) | Token-Permissions em 9 por causa do job de release | Aceito; revogado em parte pelo 0005 |
+| [0005](0005-token-permissions-deu-10.md) | Token-Permissions deu 10: o critério do D2 volta a valer inteiro | Aceito; revoga em parte o 0004 |
