@@ -15,7 +15,10 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | B1 Validador | ✅ camadas 1 e 2 | 137 testes verdes em Node 22.23.2 e 24.15.0. Um caso inválido por regra, cada um acusando **exatamente** o próprio código (os de `LINK` e `DADO-PESSOAL` são montados em tempo de teste, para nenhum CPF ou CNPJ com DV válido entrar no repositório público). `npm run validar` sobre `skills/` sai 0; sobre `invalida-NORMA` sai 1 com arquivo e linha. Vermelho demonstrado desligando `AGENCIA` (21 testes caem), `DADO-PESSOAL` (8) e `LINK` (7), só os da própria regra |
 | B2 Catálogo | ✅ camadas 1 e 2 | 149 testes verdes em Node 22.23.2 e 24.15.0: geração idêntica byte a byte, um byte alterado muda só o hash daquela skill, checkout com `core.autocrlf=true` entrega LF pelo `.gitattributes` (repositório git real no teste). `--verificar` sai 1 com diff quando o arquivo está desatualizado. Vermelho demonstrado trocando a ordenação por bytes pela comparação de string. PRs A, B e C do §10 simulados localmente com a cor esperada em cada comando |
 | C1 CLI mínima | ✅ camadas 1 e 2; camada 3 local | `--version`, `--help`, `list` com `util.parseArgs` e zero dependência. Tarball de `npm pack` com exatamente as 13 entradas da lista branca (teste falha se sobrar ou faltar; vermelho demonstrado vazando `dist/test/`). Instalado do tarball numa pasta vazia: `--version` imprime `0.0.1`, `list` imprime a frase de catálogo vazio. Node 20.20.2 real sai 3 com a versão mínima. Descrição de skill sanitizada antes do terminal (vermelho demonstrado). A camada 3 no npm é o C3 |
-| C2, C3, D1, D2 | ⬜ | Sessão 2 |
+| D1 CI | 🟡 escrito e verificado localmente | `ci.yml` com os jobs `validar`, `catalogo`, `testes` (22 e 24), `build` e `osv`; actionlint sem achados. Falta a primeira execução no GitHub, que confirma os nomes dos checks para o ruleset |
+| D2 Segurança contínua | 🟡 escrito e verificado localmente | CodeQL, Scorecard e Dependabot; teste de pinagem por SHA com vermelho demonstrado. Falta a primeira análise no GitHub e o Scorecard publicado |
+| C2 Publicação inicial | ⬜ dono | Passos no §7 do plano |
+| C3 Release | 🟡 escrito e verificado localmente | Guardas com verde e vermelho testados (inclusive simulando as linhas `run:` do workflow num repositório git temporário); actionlint sem achados. Falta C2, a data da `0.0.1` no CHANGELOG e a tag |
 
 **Push:** os commits da fase 0 ficam locais até o dono revisar e autorizar (decisão de 21/09/2026).
 
@@ -46,6 +49,18 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
   consultada pelo agente que escreveu a regra e não reconferida na revisão.
 - Fora de um terminal, o `node --test` imprime TAP no Node 22 (`# pass`) e o formato spec no
   Node 24 (`ℹ pass`). Quem filtrar a saída precisa considerar os dois.
+
+## Para destravar o GitHub (checkpoint de 21/09/2026)
+
+1. Autorização do push da `main` e das actions de terceiros (análise nos commits `c5fa2c9` e
+   `fa59090`; o `osv` usa a action composta do Google fora do modo que o mantenedor recomenda, e as
+   imagens Docker do OSV e do Scorecard são puxadas por tag, não por digest).
+2. Código de conduta: idioma e contato.
+3. Depois do push: conferir os nomes reais dos checks e então o A3 (2FA da org com os dois
+   métodos do dono conferidos antes, membros sem criar repositório, ruleset da `main` da D-012,
+   Actions com token só leitura). **Proposta nova:** ruleset de tags `v*` restringindo quem cria
+   tag — a guarda 1 do release protege contra engano, não contra quem pode fazer push de tag.
+4. C2 pelo dono; data da `0.0.1` no CHANGELOG; tag `v0.0.1`; PRs de demonstração do §10.
 
 ## Como abrir a sessão 2
 
