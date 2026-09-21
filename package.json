@@ -12,7 +12,8 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "validar": "npm run build --workspace tools && node tools/dist/src/validate-cli.js skills"
+    "validar": "npm run build --workspace tools && node tools/dist/src/validate-cli.js skills",
+    "catalogo": "npm run build --workspace tools && node tools/dist/src/catalog-cli.js"
   },
   "devDependencies": {
     "@types/node": "22.20.4",

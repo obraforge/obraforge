@@ -94,7 +94,8 @@ O validador aplica as regras acima sobre `skills/`:
 npm run validar
 ```
 
-A conferência do catálogo **está em construção na fase 0** e passa a valer quando o item B2 do plano de fundação for entregue:
+O gerador do catálogo regenera `catalog.json` na raiz; `--verificar` compara byte a byte com o
+arquivo commitado e falha com um diff quando ele está desatualizado ou ausente:
 
 ```
 npm run catalogo -- --verificar

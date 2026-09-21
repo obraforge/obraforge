@@ -73,13 +73,21 @@ O validador de skill (item B1 do plano da fase 0) roda sobre `skills/`:
 npm run validar
 ```
 
-O comando abaixo depende do item B2 (gerador de catálogo) e **ainda não está implementado**:
+O gerador do catalog.json (item B2 do plano da fase 0) roda sobre `skills/` e regenera
+`catalog.json` na raiz:
+
+```
+npm run catalogo
+```
+
+`npm run catalogo -- --verificar` regenera em memória, compara byte a byte com o `catalog.json`
+commitado e falha com um diff quando ele está desatualizado ou ausente:
 
 ```
 npm run catalogo -- --verificar
 ```
 
-Antes de declarar uma fatia pronta, rode o recorte afetado; a suíte completa (`npm run build && npm test`, mais `validar` e, quando existir, `catalogo -- --verificar`) roda ao fechar cada fatia commitável.
+Antes de declarar uma fatia pronta, rode o recorte afetado; a suíte completa (`npm run build && npm test`, mais `validar` e `catalogo -- --verificar`) roda ao fechar cada fatia commitável.
 
 ## Convenção de idioma
 

@@ -13,7 +13,7 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | A2 Comunidade | 🟡 escrito, não publicado | Os dois critérios de pronto (perfil de comunidade pela API e relato de teste no PVR) dependem do push |
 | A3 Controles | 🟡 parcial | Secret scanning, push protection e Private Vulnerability Reporting ligados em 21/09/2026 pela API. O resto (2FA da org, ruleset, Actions) fica para a sessão 2 |
 | B1 Validador | ✅ camadas 1 e 2 | 137 testes verdes em Node 22.23.2 e 24.15.0. Um caso inválido por regra, cada um acusando **exatamente** o próprio código (os de `LINK` e `DADO-PESSOAL` são montados em tempo de teste, para nenhum CPF ou CNPJ com DV válido entrar no repositório público). `npm run validar` sobre `skills/` sai 0; sobre `invalida-NORMA` sai 1 com arquivo e linha. Vermelho demonstrado desligando `AGENCIA` (21 testes caem), `DADO-PESSOAL` (8) e `LINK` (7), só os da própria regra |
-| B2 Catálogo | ⬜ | Próximo |
+| B2 Catálogo | ✅ camadas 1 e 2 | 149 testes verdes em Node 22.23.2 e 24.15.0: geração idêntica byte a byte, um byte alterado muda só o hash daquela skill, checkout com `core.autocrlf=true` entrega LF pelo `.gitattributes` (repositório git real no teste). `--verificar` sai 1 com diff quando o arquivo está desatualizado. Vermelho demonstrado trocando a ordenação por bytes pela comparação de string. PRs A, B e C do §10 simulados localmente com a cor esperada em cada comando |
 | C1, C2, C3, D1, D2 | ⬜ | Sessão 2 |
 
 **Push:** os commits da fase 0 ficam locais até o dono revisar e autorizar (decisão de 21/09/2026).
@@ -48,9 +48,14 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 - Fora de um terminal, o `node --test` imprime TAP no Node 22 (`# pass`) e o formato spec no
   Node 24 (`ℹ pass`). Quem filtrar a saída precisa considerar os dois.
 
-## Como abrir o B2
+## Como abrir a sessão 2
 
-- Sonnet em high, ~30–60 min.
-- Ler o §6 do plano (B2), este arquivo e o [`AGENTS.md`](../AGENTS.md). O B2 reaproveita a leitura
-  de frontmatter e de `normas.md` do validador (`tools/src/`).
+- Itens C1, D1, A3, D2, C2, C3 e o teste do §10, na ordem do §14 do plano, com a calibração de
+  lá (Opus em high para A3, C3 e o gate do §10).
+- **C1 decide o empacotamento:** o `catalog.json` e as skills ficam na raiz do repositório, mas o
+  `npm pack` do workspace `cli` só leva o que está em `cli/`. A lista branca do C1 (`dist/src/`,
+  `catalog.json`, `skills/`, `README.md`, `LICENSE`) precisa de um passo que copie esses arquivos
+  para dentro de `cli/` antes do pack.
+- O C2 é do dono: o agente guia e nunca vê credencial do npm. Exige npm 11.15.0 ou superior
+  (local hoje: 11.12.1; o npm 12 já existe, conferir antes de atualizar).
 - Passar pela classificação de superfície de risco antes de cada fatia.

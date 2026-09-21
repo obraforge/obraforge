@@ -38,21 +38,27 @@ export async function walkTree(root: string): Promise<Entry[]> {
 
 const BINARY_PROBE_BYTES = 8192;
 
-// Lê um arquivo regular como texto UTF-8. Devolve null quando o arquivo é binário (byte NUL nos
-// primeiros 8 KB). O_NOFOLLOW e o fstat garantem que o que foi aberto é o arquivo, não um link.
-export async function readText(path: string): Promise<string | null> {
+// Lê os bytes crus de um arquivo regular. O_NOFOLLOW e o fstat garantem que o que foi aberto é o
+// arquivo, não um link simbólico apontando para outro lugar.
+export async function readBytes(path: string): Promise<Buffer> {
   const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
     const stats = await handle.stat();
     if (!stats.isFile()) {
       throw new Error(`não é arquivo regular: ${path}`);
     }
-    const bytes = await handle.readFile();
-    if (bytes.subarray(0, BINARY_PROBE_BYTES).includes(0)) {
-      return null;
-    }
-    return bytes.toString('utf8');
+    return await handle.readFile();
   } finally {
     await handle.close();
   }
+}
+
+// Lê um arquivo regular como texto UTF-8. Devolve null quando o arquivo é binário (byte NUL nos
+// primeiros 8 KB).
+export async function readText(path: string): Promise<string | null> {
+  const bytes = await readBytes(path);
+  if (bytes.subarray(0, BINARY_PROBE_BYTES).includes(0)) {
+    return null;
+  }
+  return bytes.toString('utf8');
 }

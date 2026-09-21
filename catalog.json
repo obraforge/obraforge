@@ -1,0 +1,30 @@
+{
+  "version": "0.0.1",
+  "areas": [
+    "viabilidade",
+    "projeto",
+    "orcamento",
+    "planejamento",
+    "licitacao",
+    "suprimentos",
+    "execucao",
+    "sst",
+    "qualidade",
+    "medicao",
+    "financeiro",
+    "pessoas",
+    "regulatorio",
+    "ambiental",
+    "bim",
+    "pos-obra",
+    "comercial",
+    "vendas",
+    "financeiro-corp",
+    "fiscal",
+    "rh",
+    "regularidade",
+    "diretoria",
+    "contexto"
+  ],
+  "skills": []
+}
