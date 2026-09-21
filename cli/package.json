@@ -1,0 +1,19 @@
+{
+  "name": "obraforge",
+  "version": "0.0.1",
+  "description": "Catálogo aberto de Agent Skills para arquitetura, engenharia e construção (AEC), em português.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/obraforge/obraforge.git",
+    "directory": "cli"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test \"dist/test/**/*.test.js\""
+  }
+}
