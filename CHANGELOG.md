@@ -4,7 +4,7 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ## [Não lançado]
 
-## [0.0.1] — a definir
+## [0.0.1] — 2026-09-21
 
 Primeira release funcional, publicada pelo workflow de release do repositório, com provenance. O catálogo ainda não tem nenhuma skill.
 
