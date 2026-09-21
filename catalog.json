@@ -26,5 +26,19 @@
     "diretoria",
     "contexto"
   ],
-  "skills": []
+  "skills": [
+    {
+      "name": "exemplo-fase-0",
+      "area": "contexto",
+      "phase": 1,
+      "version": "1.0.0",
+      "description": "Skill sintética do teste do validador do obraforge. Confere se uma lista de siglas de obra traz sigla, significado e norma de origem em toda linha, sem sigla repetida. Não faz parte do catálogo.",
+      "references": [
+        "NR-18",
+        "Lei 14.133/2021"
+      ],
+      "path": "skills/contexto/exemplo-fase-0",
+      "sha256": "87c5a2670c329188e554cf417511d37436b6b026bcaa6e24147eaf1bc6677d87"
+    }
+  ]
 }
