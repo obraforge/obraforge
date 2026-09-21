@@ -6,6 +6,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Os tipos acompanham o Node mínimo do engines (>=22), para o compilador recusar API que
+      # não existe nele. Major novo só com a mudança do Node mínimo, por decisão registrada.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   # Mantém os SHAs das actions em .github/workflows/ em dia.
   - package-ecosystem: github-actions

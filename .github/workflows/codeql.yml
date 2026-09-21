@@ -13,21 +13,19 @@ on:
     - cron: '30 4 * * 1'
 
 permissions:
-  # security-events: write é exigido pela própria doc do CodeQL ("required for all workflows") —
-  # é o que grava o resultado da análise em Security > Code scanning. contents: read é o mínimo
-  # para o checkout; o template oficial (actions/starter-workflows) marca os dois como "only
-  # required for private repositories", porque um repositório público pode ser clonado sem
-  # permissão nenhuma do GITHUB_TOKEN — mas declarar contents: read aqui não pede nada a mais do
-  # que o resto dos workflows do repositório já pede, e deixa o bloco autoexplicativo.
-  # packages: read (do template) fica de fora: só é preciso para buscar CodeQL packs privados, e
-  # este repositório não usa nenhum.
   contents: read
-  security-events: write
 
 jobs:
   analyze:
     name: analyze
     runs-on: ubuntu-latest
+    # security-events: write fica no job, não no topo: é o que grava o resultado em Security >
+    # Code scanning (exigido pela doc do CodeQL), e no topo o Scorecard tira ponto em
+    # Token-Permissions. packages: read do template oficial fica de fora (só serve para CodeQL
+    # packs privados).
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
