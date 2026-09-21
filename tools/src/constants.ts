@@ -31,6 +31,13 @@ export const AVISO_PADRAO =
 // diferenciar maiúsculas e com borda de palavra onde o termo começa ou termina em letra ou dígito.
 // O espaço de um termo de duas palavras casa com qualquer sequência de espaços. Ampliação só por PR.
 // "nc" fica de fora de propósito: "NC" é não conformidade em checklist de obra.
+// Termos que só casam na grafia exata: "scp" é o comando; "SCP" em maiúsculas é a sigla de
+// Sociedade em Conta de Participação, comum em incorporação imobiliária e na área tributária.
+export const AGENCIA_CASE_SENSITIVE_TERMS: readonly string[] = ['scp'];
+
+// Shell chamado com uma opção que contém "c" (-c, -lc, -ec...) executa o texto seguinte.
+export const AGENCIA_SHELLS: readonly string[] = ['bash', 'sh', 'zsh', 'dash', 'ksh', 'fish'];
+
 export const AGENCIA_TERMS: readonly string[] = [
   'hook',
   'hooks',
@@ -53,7 +60,6 @@ export const AGENCIA_TERMS: readonly string[] = [
   'certutil',
   'netcat',
   'ncat',
-  'scp',
   'sftp',
   'rsync',
   'ssh',
@@ -62,8 +68,6 @@ export const AGENCIA_TERMS: readonly string[] = [
   'npx',
   'pip install',
   'npm install',
-  'bash -c',
-  'sh -c',
   'pwsh',
   // Configuração do agente
   'settings.local.json',

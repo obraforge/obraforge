@@ -1,6 +1,6 @@
 // Regra AGENCIA: skill não referencia hook, setting, permissão do agente nem comando de rede, e
 // não usa a sintaxe de execução de shell do agente.
-import { AGENCIA_TERMS } from '../constants.js';
+import { AGENCIA_CASE_SENSITIVE_TERMS, AGENCIA_SHELLS, AGENCIA_TERMS } from '../constants.js';
 import type { Finding } from '../findings.js';
 import type { FrontmatterData } from '../frontmatter.js';
 import { scanLines } from '../text.js';
@@ -14,15 +14,24 @@ function escapeRegExp(text: string): string {
 // Borda de palavra Unicode só do lado em que o termo começa ou termina em letra ou dígito:
 // "hook" não casa com "webhook", e "fetch(" casa seja o que vier depois do parêntese. O espaço
 // de um termo de duas palavras ("git clone") casa com qualquer sequência de espaços ou TAB.
-function termPattern(term: string): RegExp {
+function termPattern(term: string, flags = 'iu'): RegExp {
   const before = WORD_CHAR.test(term.at(0) ?? '') ? '(?<![\\p{L}\\p{N}_])' : '';
   const after = WORD_CHAR.test(term.at(-1) ?? '') ? '(?![\\p{L}\\p{N}_])' : '';
   const body = term.split(' ').map(escapeRegExp).join('\\s+');
-  return new RegExp(`${before}${body}${after}`, 'iu');
+  return new RegExp(`${before}${body}${after}`, flags);
 }
+
+// O lookahead confere que a opção tem um "c" e as letras são consumidas uma vez só: a forma
+// -[a-z]*c[a-z]* com borda de palavra no fim era quadrática numa opção longa.
+const SHELL_WITH_COMMAND = new RegExp(
+  `(?<![\\p{L}\\p{N}_])(?:${AGENCIA_SHELLS.join('|')})\\s+-(?=[a-z]*c)[a-z]+(?![\\p{L}\\p{N}_])`,
+  'iu',
+);
 
 const PATTERNS = [
   ...AGENCIA_TERMS.map((term) => ({ label: `"${term}"`, pattern: termPattern(term) })),
+  ...AGENCIA_CASE_SENSITIVE_TERMS.map((term) => ({ label: `"${term}"`, pattern: termPattern(term, 'u') })),
+  { label: 'shell com -c (execução de comando)', pattern: SHELL_WITH_COMMAND },
   // Sintaxe de execução de shell do Claude Code: o comando roda antes de o modelo ler a skill.
   // O Claude Code só reconhece !` no início da linha ou depois de espaço; aqui vale em qualquer
   // posição. O bloco cercado vale com qualquer recuo e com espaço antes do !.
