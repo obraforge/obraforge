@@ -232,6 +232,20 @@ test('SKILL.md com BOM UTF-8 no início não quebra a leitura do frontmatter', a
   assert.equal(entry?.version, '1.0.0');
 });
 
+// O validador tira o BOM UTF-8 de normas.md antes de ler as entradas; o gerador tem de ler igual,
+// senão a entrada da primeira linha some de references.
+test('normas.md com BOM UTF-8 e a entrada na primeira linha entra em references', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  const dir = await writeSkill(skillsRoot, 'contexto', 'normas-com-bom', { normas: ['NR-18', 'Lei 14.133/2021'] });
+  const normsPath = join(dir, 'references', 'normas.md');
+  await writeFile(normsPath, `\uFEFF${await readFile(normsPath, 'utf8')}`);
+  const pkg = await writePackage(root, '9.9.9');
+  const catalog = await buildCatalog(skillsRoot, pkg);
+  const entry = catalog.skills.find((skill) => skill.name === 'normas-com-bom');
+  assert.deepEqual(entry?.references, ['NR-18', 'Lei 14133']);
+});
+
 test('arquivo ou pasta oculta (nome começando com ".") não entra no hash', async () => {
   const root = await makeTempDir();
   const skillsRoot = join(root, 'skills');

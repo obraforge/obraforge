@@ -31,10 +31,19 @@ test('cada família de norma vira uma chave canônica', () => {
     ['Resolução CONAMA nº 307/2002', ['Resolução CONAMA 307']],
     ['Resolução CAU/BR nº 91', ['Resolução CAU/BR 91']],
     ['Resolução CAU/BR nº 91/2014', ['Resolução CAU/BR 91']],
-    ['Resolucao CONFEA 1.025/2009', ['Resolução CONFEA 1025']],
+    ['Resolucao CONFEA nº 1.025/2009', ['Resolução CONFEA 1025']],
     ['Resolução nº 307/2002 do CONAMA', ['Resolução CONAMA 307']],
     ['Resolução nº 1.025/2009 do CONFEA', ['Resolução CONFEA 1025']],
     ['Resolução Conama nº 307/2002', ['Resolução CONAMA 307']],
+    // Toda grafia aceita do sinal de número, nas duas formas de Resolução.
+    ['Resolução CONAMA n.º 307/2002', ['Resolução CONAMA 307']],
+    ['Resolução CONAMA n° 307/2002', ['Resolução CONAMA 307']],
+    ['Resolução CONAMA no. 307/2002', ['Resolução CONAMA 307']],
+    ['Resolução CONAMA n. 307/2002', ['Resolução CONAMA 307']],
+    ['Resolução n.º 307/2002 do CONAMA', ['Resolução CONAMA 307']],
+    ['Resolução n° 307/2002 do CONAMA', ['Resolução CONAMA 307']],
+    ['Resolução no. 307/2002 do CONAMA', ['Resolução CONAMA 307']],
+    ['Resolução n. 307/2002 do CONAMA', ['Resolução CONAMA 307']],
   ];
   for (const [text, expected] of cases) {
     assert.deepEqual(keys(text), expected, text);
@@ -44,6 +53,34 @@ test('cada família de norma vira uma chave canônica', () => {
 test('texto que não é citação não vira chave', () => {
   for (const text of ['NRs da obra', 'nr 12 itens', 'a resolução de 2019 do conselho', 'webNR-18x', 'NR-100', 'Leis 8', 'nbr 9050']) {
     assert.deepEqual(keys(text), [], text);
+  }
+});
+
+// Resolução só vira citação ancorada no sinal de número (nº, n.º, n°, no. ou n.): sem ele, a
+// palavra seguinte (ou o que vem depois de "do/da") era lida como órgão em qualquer caixa.
+for (const text of [
+  'a resolução dos 12 problemas',
+  'imagem com resolução mínima 300 dpi e resolução nominal 1920 px',
+  'resolução da equipe 2',
+  'resolução espacial 30 m do sensor',
+  'a resolução 2 da equipe técnica',
+  'Resolucao CONFEA 1.025/2009',
+  'Resolução no 307/2002 do CONAMA',
+]) {
+  test(`resolução sem sinal de número não vira citação: ${text}`, () => {
+    assert.deepEqual(keys(text), []);
+  });
+}
+
+test('extractCitations com resolução sem sinal de número roda em tempo linear numa linha de 200 KB', () => {
+  const chunk = `Resolução ${'n'.repeat(40)} 1.2.3.4.5.6.7.8.9 do ${'x'.repeat(40)} resolução nº 1 da resolução no ${'1.'.repeat(30)} `;
+  const repeated = chunk.repeat(Math.ceil((200 * 1024) / chunk.length));
+  // Sigla gigante sem sinal de número depois, e número gigante sem "do/da" depois.
+  for (const text of [repeated, `Resolução ${'A'.repeat(205_000)} 1`, `Resolução nº ${'1.'.repeat(103_000)}x`]) {
+    const start = process.hrtime.bigint();
+    extractCitations([text]);
+    const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+    assert.ok(elapsedMs < 100, `esperava menos de 100 ms, levou ${elapsedMs} ms`);
   }
 });
 
@@ -85,8 +122,9 @@ test('NORMA: todas as formas novas de citação do corpo casam com entradas em n
     'Lei 14133',
     'Lei 10520',
     'Decreto 7983',
-    'Resolução CONAMA 307',
-    'Resolução CONFEA 1025',
+    // Resolução, também no heading, só vira chave com o sinal de número.
+    'Resolução CONAMA nº 307/2002',
+    'Resolução CONFEA nº 1.025/2009',
   ];
   const normsLines = headings.flatMap((heading) => [
     `## ${heading}`,
@@ -95,6 +133,16 @@ test('NORMA: todas as formas novas de citação do corpo casam com entradas em n
     '- Fonte: https://exemplo.gov.br',
   ]);
   assert.deepEqual(checkNorms('skills/area/exemplo', skillLines, normsLines), []);
+});
+
+// Consequência do sinal de número obrigatório: o heading sem ele não gera chave, e a citação do
+// corpo é acusada (fail-closed), em vez de a entrada valer para qualquer frase.
+test('NORMA: heading de Resolução sem sinal de número não cobre a citação do corpo', () => {
+  const normsLines = ['## Resolução CONAMA 307', '- Título: Título de teste', '- Ano: 2002', '- Fonte: https://exemplo.gov.br'];
+  assert.deepEqual(
+    checkNorms('skills/area/exemplo', ['Resolução CONAMA nº 307/2002.'], normsLines).map((finding) => finding.message),
+    ['citação "Resolução CONAMA 307" sem entrada em references/normas.md'],
+  );
 });
 
 test('extractCitations não sofre backtracking catastrófico numa linha de 200 KB', () => {

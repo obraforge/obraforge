@@ -49,11 +49,13 @@ test('nome de arquivo com quebra de linha não quebra a linha do achado', async 
   const file = join(skill, 'fixtures', 'a\n::error::injetado.md');
   await writeFile(file, 'x\n');
   await chmod(file, 0o755);
-  const findings = await validateSkillsRoot(root);
-  assert.equal(findings.length, 1);
-  const [finding] = findings;
-  assert.ok(finding !== undefined);
-  const line = formatFinding(finding);
-  assert.ok(!line.includes('\n'), line);
-  assert.equal(line, 'LINK contexto/exemplo-valido/fixtures/a\\u{a}::error::injetado.md — arquivo com permissão de execução');
+  // A quebra de linha no nome também é caractere de controle, que a ESTRUTURA acusa no nome.
+  const lines = (await validateSkillsRoot(root)).map(formatFinding);
+  for (const line of lines) {
+    assert.ok(!line.includes('\n'), line);
+  }
+  assert.deepEqual(lines, [
+    'ESTRUTURA contexto/exemplo-valido/fixtures/a\\u{a}::error::injetado.md — nome de arquivo com caractere invisível',
+    'LINK contexto/exemplo-valido/fixtures/a\\u{a}::error::injetado.md — arquivo com permissão de execução',
+  ]);
 });

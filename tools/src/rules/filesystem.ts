@@ -19,6 +19,10 @@ export function checkLinks(entries: readonly Entry[]): Finding[] {
   return findings;
 }
 
+// Caractere invisível, de controle, de formatação ou bidirecional no nome esconde o que o arquivo
+// é: "y.sh" seguido de U+200B não tem a extensão .sh que a regra SCRIPTS procura.
+const INVISIBLE_IN_NAME = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]/u;
+
 // `entries`: conteúdo da pasta da skill, com caminho relativo a ela.
 export function checkStructure(skillDir: string, entries: ReadonlyMap<string, Entry>): Finding[] {
   const isFile = (path: string): boolean => entries.get(path)?.kind === 'file';
@@ -39,11 +43,16 @@ export function checkStructure(skillDir: string, entries: ReadonlyMap<string, En
     missing.push('references/normas.md');
   }
   const findings: Finding[] = missing.map((path) => ({ code: 'ESTRUTURA', file: skillDir, message: `falta ${path}` }));
-  // Arquivo ou pasta oculto (nome começando com ".") some da listagem comum e da revisão do PR.
-  // A pasta oculta é acusada uma vez; o que está dentro dela continua sendo varrido.
+  // Arquivo ou pasta oculto (nome começando com ".") some da listagem comum e da revisão do PR, e o
+  // nome com caractere invisível engana quem revisa. Cada nome é conferido na própria entrada, então
+  // a pasta é acusada uma vez; o que está dentro dela continua sendo varrido.
   for (const entry of entries.values()) {
-    if ((entry.path.split('/').at(-1) ?? '').startsWith('.')) {
+    const name = entry.path.split('/').at(-1) ?? '';
+    if (name.startsWith('.')) {
       findings.push({ code: 'ESTRUTURA', file: `${skillDir}/${entry.path}`, message: 'arquivo oculto dentro da skill' });
+    }
+    if (INVISIBLE_IN_NAME.test(name)) {
+      findings.push({ code: 'ESTRUTURA', file: `${skillDir}/${entry.path}`, message: 'nome de arquivo com caractere invisível' });
     }
   }
   return findings;

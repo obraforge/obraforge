@@ -9,7 +9,7 @@ import { MAX_TEXT_FILE_BYTES } from './constants.js';
 import { isPlainObject, ownValue, parseFrontmatter, type FrontmatterData } from './frontmatter.js';
 import { extractCitations } from './rules/norms.js';
 import { splitLines } from './text.js';
-import { readBytes, readSkillFile, readText, walkTree, type Entry } from './tree.js';
+import { readBytes, readSkillFile, walkTree, type Entry } from './tree.js';
 
 // Erro esperado (fail-closed): a skill não pôde ser catalogada. Distinto de erro inesperado.
 export class CatalogBuildError extends Error {}
@@ -134,7 +134,7 @@ async function buildSkillEntry(root: string, skillDir: string, allEntries: reado
   try {
     // O validador aceita SKILL.md com BOM UTF-8 (readSkillFile já retira o BOM); o gerador lê da
     // mesma forma, para as duas ferramentas concordarem na mesma pasta.
-    const content = await readSkillFile(join(skillAbs, 'SKILL.md'), { textExtension: true, maxBytes: MAX_TEXT_FILE_BYTES });
+    const content = await readSkillFile(join(skillAbs, 'SKILL.md'), { binary: false, maxBytes: MAX_TEXT_FILE_BYTES });
     skillText = content.kind === 'text' ? content.text : null;
   } catch {
     skillText = null;
@@ -217,19 +217,21 @@ function compareBytes(a: string, b: string): number {
 // references: a chave canônica (a mesma que a regra NORMA usa para casar citação) de cada heading
 // "## " de references/normas.md, na ordem do arquivo, sem duplicatas. Um heading que não gera
 // chave (não casa com nenhuma forma de citação reconhecida) fica de fora. Lista vazia se o
-// arquivo não existir, não for arquivo regular, ou não for texto.
+// arquivo não existir, não for arquivo regular, ou não for texto que o validador aceitaria. A
+// leitura é a mesma do validador (readSkillFile, que tira o BOM UTF-8), para a entrada da
+// primeira linha não sumir de references quando o arquivo tem BOM.
 async function readReferences(skillAbs: string, scoped: readonly Entry[]): Promise<string[]> {
   const normsEntry = scoped.find((entry) => entry.path === 'references/normas.md');
   if (normsEntry === undefined || normsEntry.kind !== 'file') {
     return [];
   }
-  const text = await readText(join(skillAbs, 'references/normas.md'));
-  if (text === null) {
+  const content = await readSkillFile(join(skillAbs, 'references/normas.md'), { binary: false, maxBytes: MAX_TEXT_FILE_BYTES });
+  if (content.kind !== 'text') {
     return [];
   }
   const references: string[] = [];
   const seen = new Set<string>();
-  for (const line of splitLines(text)) {
+  for (const line of splitLines(content.text)) {
     const match = HEADING.exec(line);
     if (match === null) {
       continue;

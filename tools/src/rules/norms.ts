@@ -26,12 +26,16 @@ const LAW_LIST_ITEM = `${NUMBER}(?:\\/\\d{2,4})?`;
 // do conselho" não virar citação.
 const ORG = '([A-Za-z][A-Za-z0-9]{2,}(?:\\/[A-Za-z]+)?)';
 const RESOLUTION_KEYWORD = '[Rr][Ee][Ss][Oo][Ll][Uu][ÇçCc][ÃãAa][Oo]';
+// Sinal de número obrigatório em Resolução: "nº", "n.º", "n°", "no." ou "n.". Sem ele, a palavra
+// seguinte a "resolução" ("resolução nominal 1920 px") ou a que vem depois de "do/da" ("resolução
+// 2 da equipe") era lida como órgão. "no" sem ponto não vale: é a preposição.
+const RESOLUTION_NUMERO_SIGN = '[nN](?:\\.?\\s?[º°]|[oO]\\.|\\.)\\s*';
 
 // NR e NBR só em maiúsculas (evita "nr 12" como abreviação de número). Lei e Decreto sem
 // diferenciar maiúsculas; a borda antes deles exclui o hífen, para "Decreto-Lei" não ser lido
-// também como "Lei". Em Resolução, a palavra aceita qualquer caixa, e agora a sigla do órgão
-// também (CONAMA, CONFEA, CAU/BR, em qualquer caixa), antes ("Resolução CONAMA nº...") ou depois
-// ("Resolução nº... do CONAMA") do número.
+// também como "Lei". Em Resolução, a palavra aceita qualquer caixa e a sigla do órgão também
+// (CONAMA, CONFEA, CAU/BR, em qualquer caixa), antes ("Resolução CONAMA nº...") ou depois
+// ("Resolução nº... do CONAMA") do número, mas só nas duas formas ancoradas no sinal de número.
 const NR = new RegExp(`${BEFORE}NR\\s?[-–]?\\s?(\\d{1,2})(?!\\d)`, 'gu');
 // "ABNT " é prefixo opcional; NBR aceita espaço ou hífen antes do número ("NBR-6118", "NBR 6118",
 // "NBR9050").
@@ -44,9 +48,9 @@ const LAW = new RegExp(
 // por número da lista, todas com a família "Lei".
 const LAW_LIST = new RegExp(`${BEFORE}[Ll]eis\\s+${LAW_LIST_ITEM}(?:\\s*,\\s*${LAW_LIST_ITEM})*\\s+e\\s+${LAW_LIST_ITEM}`, 'gu');
 const LAW_LIST_ITEM_PATTERN = new RegExp(LAW_LIST_ITEM, 'gu');
-const RESOLUTION_ORG_FIRST = new RegExp(`${BEFORE}${RESOLUTION_KEYWORD}\\s+${ORG}\\s+${NUMERO_SIGN}${NUMBER}`, 'gu');
+const RESOLUTION_ORG_FIRST = new RegExp(`${BEFORE}${RESOLUTION_KEYWORD}\\s+${ORG}\\s+${RESOLUTION_NUMERO_SIGN}${NUMBER}`, 'gu');
 const RESOLUTION_NUMBER_FIRST = new RegExp(
-  `${BEFORE}${RESOLUTION_KEYWORD}\\s+${NUMERO_SIGN}${NUMBER}(?:\\/\\d+)?\\s+(?:do|da)\\s+${ORG}`,
+  `${BEFORE}${RESOLUTION_KEYWORD}\\s+${RESOLUTION_NUMERO_SIGN}${NUMBER}(?:\\/\\d+)?\\s+(?:do|da)\\s+${ORG}`,
   'gu',
 );
 

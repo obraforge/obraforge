@@ -1,6 +1,6 @@
 import { lstat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { MAX_TEXT_FILE_BYTES, TEXT_EXTENSIONS } from './constants.js';
+import { BINARY_EXTENSIONS, MAX_BINARY_FILE_BYTES, MAX_TEXT_FILE_BYTES } from './constants.js';
 import type { Finding } from './findings.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { checkFrontmatterKeys, scanAgency } from './rules/agency.js';
@@ -86,17 +86,18 @@ async function validateSkill(
 
   let findings = [...checkStructure(skillDir, entries), ...checkScripts(skillDir, entries)];
 
-  // Conteúdo de todo arquivo de texto da skill. Binário de extensão que não é de texto (byte NUL
-  // nos primeiros 8 KB) fica de fora. Arquivo de extensão de texto ou entra em `texts` ou é acusado
-  // aqui: nunca sai da varredura calado.
+  // Conteúdo de todo arquivo de texto da skill. Só arquivo da lista de binários fica de fora (e só
+  // o tamanho dele é conferido). Todo outro arquivo ou entra em `texts` ou é acusado aqui: nunca
+  // sai da varredura calado.
   const texts = new Map<string, string>();
   for (const entry of entries.values()) {
     if (entry.kind !== 'file') {
       continue;
     }
+    const binary = BINARY_EXTENSIONS.includes(extensionOf(entry.path));
     const content = await readSkillFile(join(root, skillDir, entry.path), {
-      textExtension: TEXT_EXTENSIONS.includes(extensionOf(entry.path)),
-      maxBytes: MAX_TEXT_FILE_BYTES,
+      binary,
+      maxBytes: binary ? MAX_BINARY_FILE_BYTES : MAX_TEXT_FILE_BYTES,
     });
     if (content.kind === 'text') {
       texts.set(entry.path, content.text);
@@ -106,7 +107,9 @@ async function validateSkill(
       findings.push({
         code: 'ESTRUTURA',
         file: `${prefix}${entry.path}`,
-        message: `arquivo de texto com mais de 1 MiB (${MAX_TEXT_FILE_BYTES} bytes)`,
+        message: binary
+          ? `arquivo binário com mais de 5 MiB (${MAX_BINARY_FILE_BYTES} bytes)`
+          : `arquivo de texto com mais de 1 MiB (${MAX_TEXT_FILE_BYTES} bytes)`,
       });
     }
   }
@@ -121,7 +124,7 @@ async function validateSkill(
   }
   const skillFile = `${prefix}SKILL.md`;
   const skillText = texts.get('SKILL.md');
-  // SKILL.md fora de `texts` já foi acusado na leitura (.md é extensão de texto).
+  // SKILL.md fora de `texts` já foi acusado na leitura (.md não está na lista de binários).
   if (skillText === undefined) {
     return findings;
   }

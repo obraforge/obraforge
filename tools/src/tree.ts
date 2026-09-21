@@ -69,31 +69,29 @@ export async function readBytes(path: string): Promise<Buffer> {
 
 export type SkillFileContent =
   | { kind: 'text'; text: string }
-  // Extensão que não é de texto, com byte NUL nos primeiros 8 KB: fica fora da varredura.
+  // Extensão da lista de binários, dentro do teto: fica fora da varredura, sem ser lido.
   | { kind: 'binary' }
-  // Extensão de texto com byte NUL, BOM UTF-16 ou UTF-8 inválido.
+  // Fora da lista de binários, com byte NUL, BOM UTF-16 ou UTF-8 inválido.
   | { kind: 'not-utf8' }
-  // Seria varrido, mas passa de `maxBytes`.
+  // Passa de `maxBytes`.
   | { kind: 'too-large' };
 
 const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
-// Lê um arquivo de uma skill. Com extensão de texto (`textExtension`), o arquivo tem de ser UTF-8
-// válido, sem byte NUL em nenhuma posição e sem BOM UTF-16; senão é 'not-utf8', e não binário, para
-// não sair da varredura calado. Com outra extensão, vale a sondagem de binário de readText. Todo
-// arquivo que seria varrido tem no máximo `maxBytes`; o tamanho vem do fstat, então o arquivo
-// grande não chega a ser lido (só os primeiros 8 KB, para a sondagem de binário).
+// Lê um arquivo de uma skill. Arquivo da lista de binários (`binary`) não é lido: só o tamanho é
+// conferido contra `maxBytes`. Qualquer outro arquivo, com qualquer extensão ou sem extensão, tem
+// de ser UTF-8 válido, sem byte NUL em nenhuma posição e sem BOM UTF-16; senão é 'not-utf8', e não
+// binário, para não sair da varredura calado. O tamanho vem do fstat, então o arquivo acima do teto
+// não chega a ser lido.
 export async function readSkillFile(
   path: string,
-  { textExtension, maxBytes }: { textExtension: boolean; maxBytes: number },
+  { binary, maxBytes }: { binary: boolean; maxBytes: number },
 ): Promise<SkillFileContent> {
   const bytes = await withRegularFile(path, async (handle, size) => {
-    if (size <= maxBytes) {
-      return handle.readFile();
+    if (size > maxBytes) {
+      return 'too-large' as const;
     }
-    const probe = Buffer.alloc(BINARY_PROBE_BYTES);
-    const { bytesRead } = await handle.read(probe, 0, BINARY_PROBE_BYTES, 0);
-    return textExtension || !probe.subarray(0, bytesRead).includes(0) ? 'too-large' : 'binary';
+    return binary ? ('binary' as const) : handle.readFile();
   });
   if (bytes === 'too-large' || bytes === 'binary') {
     return { kind: bytes };
@@ -102,21 +100,15 @@ export async function readSkillFile(
   if (bytes.length > maxBytes) {
     return { kind: 'too-large' };
   }
-  if (textExtension) {
-    const utf16Bom = bytes.length >= 2 && ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff));
-    if (utf16Bom || bytes.includes(0)) {
-      return { kind: 'not-utf8' };
-    }
-    try {
-      return { kind: 'text', text: withoutBom(UTF8.decode(bytes)) };
-    } catch {
-      return { kind: 'not-utf8' };
-    }
+  const utf16Bom = bytes.length >= 2 && ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff));
+  if (utf16Bom || bytes.includes(0)) {
+    return { kind: 'not-utf8' };
   }
-  if (bytes.subarray(0, BINARY_PROBE_BYTES).includes(0)) {
-    return { kind: 'binary' };
+  try {
+    return { kind: 'text', text: withoutBom(UTF8.decode(bytes)) };
+  } catch {
+    return { kind: 'not-utf8' };
   }
-  return { kind: 'text', text: withoutBom(bytes.toString('utf8')) };
 }
 
 // O BOM UTF-8 no início sai antes de ler o frontmatter e de varrer: um SKILL.md com BOM vale o

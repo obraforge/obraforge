@@ -6,6 +6,7 @@ import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { AGENCIA_TERMS } from '../src/constants.js';
+import { checkStructure } from '../src/rules/filesystem.js';
 import { validateSkillsRoot, type RuleCode } from '../src/validate.js';
 import {
   appendLine,
@@ -129,10 +130,14 @@ const cases: Array<[string, RuleCode[], Mutation]> = [
   ['allowed-tools no frontmatter', ['AGENCIA'], editSkill(NAME_LINE, `${NAME_LINE}allowed-tools: Read\n`)],
   ['allowed-tools escrito com escape YAML', ['AGENCIA'], editSkill(NAME_LINE, `${NAME_LINE}"allowed\\x2Dtools": Read\n`)],
   ['Hooks com maiúscula', ['AGENCIA'], addToSkillBody('Hooks do agente.')],
+  // Falso positivo aceito: a lista da regra traz "hook", então o gancho de içamento também cai.
+  ['hooks de içamento continuam acusados', ['AGENCIA'], addToSkillBody('Confira os hooks de içamento da grua.')],
   ['webhook não é hook', [], addToSkillBody('O sistema de obra avisa por webhook.')],
   ['fetch( no meio do código', ['AGENCIA'], addToSkillBody('`await fetch("https://exemplo")`')],
   ['curl partido por espaço de largura zero', ['AGENCIA'], addToSkillBody('Rode cu\u200brl antes.')],
   ['curl em letras de largura total', ['AGENCIA'], addToSkillBody('Rode ｃｕｒｌ antes.')],
+  ['curl com c cirílico (homóglifo)', ['AGENCIA'], addToSkillBody('Rode \u0441url antes.')],
+  ['homóglifo cirílico em references/', ['AGENCIA'], writeInSkill('references/tabela.md', 'Use o h\u043E\u043Ek do agente.\n')],
 
   // AGENCIA: sintaxe de execução de shell do Claude Code (roda antes de o modelo ler a skill)
   ['!` no início da linha', ['AGENCIA'], addToSkillBody('!`date`')],
@@ -157,8 +162,10 @@ const cases: Array<[string, RuleCode[], Mutation]> = [
   ['telefone fictício de 8 dígitos', [], (c) => appendLine(entrada(c), 'XPT;teste;;;(00) 0000-0000')],
   ['telefone com +55', ['DADO-PESSOAL'], (c) => appendLine(entrada(c), 'XPT;teste;;;+55 10 90000-0001')],
   ['número sem DDD não é telefone', [], (c) => appendLine(entrada(c), 'XPT;teste;;;90000-0001')],
-  // Limitação conhecida: arquivo binário (byte NUL nos primeiros 8 KB) não é escaneado.
-  ['conteúdo de arquivo binário não é escaneado', [], writeInSkill('assets/planilha.bin', Buffer.concat([Buffer.from([0]), Buffer.from('curl fulano@obraforge.invalid\n')]))],
+  // Limitação conhecida: arquivo com extensão da lista de binários não é escaneado.
+  ['conteúdo de arquivo da lista de binários não é escaneado', [], writeInSkill('assets/planilha.xlsx', Buffer.concat([Buffer.from([0]), Buffer.from('curl fulano@obraforge.invalid\n')]))],
+  // Byte NUL fora da lista de binários não tira o arquivo da varredura calado: vira ESTRUTURA.
+  ['arquivo com byte NUL fora da lista de binários', ['ESTRUTURA'], writeInSkill('assets/planilha.bin', Buffer.concat([Buffer.from([0]), Buffer.from('curl fulano@obraforge.invalid\n')]))],
 
   // LINK
   ['link para pasta de fora não é seguido', ['LINK'], async (c) => {
@@ -186,6 +193,8 @@ for (const [name, expected, mutate] of cases) {
 const CODE_EXTENSIONS = [
   '.sh', '.bash', '.zsh', '.ps1', '.psm1', '.bat', '.cmd', '.py', '.js', '.mjs', '.cjs', '.ts', '.rb', '.pl',
   '.php', '.exe', '.dll', '.so', '.dylib', '.jar', '.vbs', '.applescript',
+  '.fish', '.ksh', '.csh', '.tcsh', '.command', '.lua', '.awk', '.tcl', '.pyw', '.scpt', '.hta', '.wsf', '.wsh',
+  '.jse', '.vbe', '.nu', '.r', '.sql', '.reg', '.msi', '.pkg', '.deb', '.rpm', '.dmg', '.appimage',
 ];
 
 for (const extension of CODE_EXTENSIONS) {
@@ -212,6 +221,53 @@ for (const [name, expected, mutate] of scriptFileCases) {
   });
 }
 
+// Nome de arquivo ou pasta com caractere invisível, de controle, de formatação ou bidirecional
+// esconde o que o arquivo é: "y.sh" seguido de U+200B não tem a extensão .sh da regra SCRIPTS.
+// Como a pasta oculta, a pasta com nome assim é acusada uma vez, na pasta.
+const INVISIBLE_NAME_MESSAGE = 'nome de arquivo com caractere invisível';
+const invisibleNameCases: Array<[string, string, string]> = [
+  ['y.sh seguido de U+200B', 'assets/y.sh\u200B', 'assets/y.sh\u200B'],
+  ['guia.txt seguido de U+200B', 'references/guia.txt\u200B', 'references/guia.txt\u200B'],
+  ['U+202E (bidirecional) no nome', 'references/nota\u202Edm.md', 'references/nota\u202Edm.md'],
+  ['U+061C (marca de letra árabe) no nome', 'references/no\u061Cta.md', 'references/no\u061Cta.md'],
+  ['U+00AD (hífen condicional) no nome', 'references/no\u00ADta.md', 'references/no\u00ADta.md'],
+  ['U+FEFF no nome', 'references/no\uFEFFta.md', 'references/no\uFEFFta.md'],
+  ['U+0001 (controle) no nome', 'references/no\u0001ta.md', 'references/no\u0001ta.md'],
+  ['U+007F (delete) no nome', 'references/no\u007Fta.md', 'references/no\u007Fta.md'],
+  ['TAB no nome', 'references/no\tta.md', 'references/no\tta.md'],
+  ['U+2028 (separador de linha) no nome', 'references/no\u2028ta.md', 'references/no\u2028ta.md'],
+  ['U+2029 (separador de parágrafo) no nome', 'references/no\u2029ta.md', 'references/no\u2029ta.md'],
+  ['U+034F (default-ignorable) no nome', 'references/no\u034Fta.md', 'references/no\u034Fta.md'],
+  ['pasta com U+200B: um achado, na pasta', 'assets/pas\u200Bta/nota.md', 'assets/pas\u200Bta'],
+];
+
+for (const [name, path, flagged] of invisibleNameCases) {
+  test(`ESTRUTURA acusa ${name}`, async () => {
+    const c = await copyValidCase();
+    await writeInSkill(path, 'Nota.\n')(c);
+    const findings = await validateSkillsRoot(c.root);
+    assert.deepEqual(
+      findings.map((finding) => [finding.code, finding.file, finding.message]),
+      [['ESTRUTURA', `contexto/exemplo-valido/${flagged}`, INVISIBLE_NAME_MESSAGE]],
+    );
+  });
+}
+
+test('conferência de caractere invisível no nome roda em tempo linear num nome de 200 KB', () => {
+  const name = `${'a'.repeat(205_000)}\u200B`;
+  const start = performance.now();
+  const findings = checkStructure('contexto/exemplo', new Map([[name, { path: name, kind: 'file', executable: false }]]));
+  const elapsed = performance.now() - start;
+  assert.ok(findings.some((finding) => finding.message === INVISIBLE_NAME_MESSAGE));
+  assert.ok(elapsed < 100, `levou ${elapsed.toFixed(0)} ms`);
+});
+
+test('nome com acento e cedilha não é caractere invisível', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('references/orçamento-memória de cálculo.md', 'Nota.\n')(c);
+  assert.deepEqual(await codesOf(c.root), []);
+});
+
 test('SCRIPTS aponta o arquivo de código', async () => {
   const c = await copyValidCase();
   await writeInSkill('assets/ferramenta.py', 'x\n')(c);
@@ -224,10 +280,13 @@ test('SCRIPTS aponta o arquivo de código', async () => {
 const NETWORK_AND_EXECUTION_TERMS = [
   'WebFetch', 'WebSearch', 'Invoke-RestMethod', 'iwr', 'irm', 'certutil', 'netcat', 'ncat', 'scp', 'sftp', 'rsync',
   'ssh', 'telnet', 'git clone', 'npx', 'pip install', 'npm install', 'bash -c', 'sh -c', 'pwsh',
+  'pip3 install', 'npm ci', 'npm i', 'gh repo clone', 'gh api', 'powershell', 'Start-BitsTransfer', 'bitsadmin',
+  'Net.WebClient', 'DownloadString', 'DownloadFile', 'socat', 'openssl s_client', 'tftp', 'aria2c', 'rclone', 'rcp',
 ];
 const AGENT_CONFIG_TERMS = [
   'settings.local.json', 'CLAUDE.md', 'AGENTS.md', '.mcp.json', 'mcpServers', 'PreToolUse', 'PostToolUse',
   'UserPromptSubmit', 'SessionStart',
+  'CLAUDE.local.md', 'SubagentStop', 'PreCompact', 'SessionEnd', 'PermissionRequest', 'PostToolUseFailure',
 ];
 
 for (const term of [...NETWORK_AND_EXECUTION_TERMS, ...AGENT_CONFIG_TERMS]) {
@@ -247,6 +306,11 @@ const legitimatePhrases: Array<[string, string]> = [
   ['Lei de Hooke', 'A Lei de Hooke relaciona tensão e deformação no regime elástico.'],
   ['irm dentro de palavra', 'Confirme a firma reconhecida no contrato de empreitada.'],
   ['ncat dentro de palavra', 'Concatene as colunas de sigla e significado.'],
+  // "RCP" em maiúsculas é reanimação cardiopulmonar (SST); só "rcp" em minúsculas é o comando.
+  ['RCP de primeiros socorros', 'Treine a brigada em RCP (reanimação cardiopulmonar) antes do início da obra.'],
+  ['servidor FTP de projetos', 'Publique as pranchas no servidor FTP de projetos da construtora.'],
+  ['notificação da fiscalização', 'Registre a notificação da fiscalização no diário de obra.'],
+  ['SCP de incorporação', 'A SCP da incorporação tem um sócio ostensivo.'],
 ];
 
 for (const [name, phrase] of legitimatePhrases) {
@@ -256,6 +320,13 @@ for (const [name, phrase] of legitimatePhrases) {
     assert.deepEqual(await codesOf(c.root), []);
   });
 }
+
+test('termo de duas palavras partido por espaço de largura zero', async () => {
+  const c = await copyValidCase();
+  await addToSkillBody('Rode git\u200Bclone antes.')(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(findings.map((finding) => [finding.code, finding.message]), [['AGENCIA', 'referência proibida: "git clone"']]);
+});
 
 test('termo de duas palavras com espaço duplo ou TAB entre elas', async () => {
   const c = await copyValidCase();
@@ -290,6 +361,17 @@ const INVISIBLE_CHARS: Array<[string, string]> = [
   ['U+E0100 (seletor de variação 17)', '\u{E0100}'],
   ['U+180B (seletor de variação mongol)', '\u180B'],
   ['U+17B4 (vogal khmer invisível)', '\u17B4'],
+  // Uso privado (\p{Co}) e não-caracteres (U+FDD0 a U+FDEF e os dois últimos de cada plano).
+  ['U+E000 (uso privado)', '\uE000'],
+  ['U+F8FF (uso privado)', '\uF8FF'],
+  ['U+F0000 (uso privado do plano 15)', '\u{F0000}'],
+  ['U+100000 (uso privado do plano 16)', '\u{100000}'],
+  ['U+FDD0 (não-caractere)', '\uFDD0'],
+  ['U+FDEF (não-caractere)', '\uFDEF'],
+  ['U+FFFE (não-caractere)', '\uFFFE'],
+  ['U+FFFF (não-caractere)', '\uFFFF'],
+  ['U+1FFFE (não-caractere)', '\u{1FFFE}'],
+  ['U+10FFFF (não-caractere)', '\u{10FFFF}'],
 ];
 
 for (const [label, char] of INVISIBLE_CHARS) {
@@ -319,8 +401,9 @@ test('separadores tirados da varredura não mudam o número da linha', async () 
   assert.deepEqual(findings.map((finding) => [finding.code, finding.line]), [['AGENCIA', 29]]);
 });
 
-// Arquivo com extensão de texto tem de ser UTF-8: UTF-16 (com ou sem BOM), byte NUL ou UTF-8
-// inválido vira ESTRUTURA, em vez de o arquivo sair da varredura como binário.
+// Arquivo fora da lista de binários tem de ser UTF-8: UTF-16 (com ou sem BOM), byte NUL ou UTF-8
+// inválido vira ESTRUTURA, em vez de o arquivo sair da varredura como binário. Primeiro as
+// extensões de texto comuns; as demais, e o arquivo sem extensão, vêm logo abaixo.
 const UTF8_MESSAGE = 'arquivo de texto precisa ser UTF-8';
 const utf16le = (text: string): Buffer => Buffer.from(text, 'utf16le');
 const TEXT_EXTENSIONS = ['.md', '.markdown', '.txt', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.html', '.htm'];
@@ -333,6 +416,36 @@ for (const extension of TEXT_EXTENSIONS) {
   });
 }
 
+// Todo arquivo fora da lista de binários tem de ser UTF-8, com qualquer extensão ou sem extensão.
+const OTHER_EXTENSIONS = ['.rst', '.adoc', '.toml', '.ini', '.log', '.mdx', '.rtf', '.dat', '.bin', '.svg', ''];
+
+for (const extension of OTHER_EXTENSIONS) {
+  test(`UTF-16LE sem BOM em references/extra${extension || ' (sem extensão)'}`, async () => {
+    const c = await copyValidCase();
+    await writeInSkill(`references/extra${extension}`, utf16le('Rode curl antes.\n'))(c);
+    const findings = await validateSkillsRoot(c.root);
+    assert.deepEqual(
+      findings.map((finding) => [finding.code, finding.file, finding.message]),
+      [['ESTRUTURA', `contexto/exemplo-valido/references/extra${extension}`, UTF8_MESSAGE]],
+    );
+  });
+}
+
+// Lista branca de binários, repetida aqui à parte da constante do validador: só elas ficam fora da
+// varredura (limitação registrada).
+const BINARY_EXTENSIONS = [
+  '.xlsx', '.xlsm', '.xls', '.ods', '.docx', '.doc', '.odt', '.pptx', '.pdf', '.png', '.jpg', '.jpeg', '.gif',
+  '.webp', '.bmp', '.tif', '.tiff', '.dwg', '.dwf', '.rvt', '.rfa', '.skp',
+];
+
+for (const extension of BINARY_EXTENSIONS) {
+  test(`arquivo ${extension} em UTF-16 não é varrido`, async () => {
+    const c = await copyValidCase();
+    await writeInSkill(`assets/modelo${extension}`, utf16le('Rode curl antes.\n'))(c);
+    assert.deepEqual(await codesOf(c.root), []);
+  });
+}
+
 const encodingCases: Array<[string, RuleCode[], Mutation]> = [
   ['UTF-16LE com BOM', ['ESTRUTURA'], writeInSkill('references/extra.md', Buffer.concat([Buffer.from([0xff, 0xfe]), utf16le('Rode curl antes.\n')]))],
   // Só ideogramas: nenhum byte NUL, então só o BOM (ou o UTF-8 inválido) denuncia.
@@ -342,6 +455,11 @@ const encodingCases: Array<[string, RuleCode[], Mutation]> = [
   ['byte NUL depois dos primeiros 8 KB', ['ESTRUTURA'], writeInSkill('references/extra.md', `${'a'.repeat(9000)}\n\0Rode curl antes.\n`)],
   ['extensão de texto em maiúsculas', ['ESTRUTURA'], writeInSkill('references/EXTRA.MD', utf16le('Rode curl antes.\n'))],
   ['fixtures/entrada.csv em UTF-16LE', ['ESTRUTURA'], (c) => writeFile(entrada(c), utf16le('sigla;significado;norma\nNR;Norma Regulamentadora;NR-18\n'))],
+  ['UTF-16LE com BOM e sem byte NUL em .rst', ['ESTRUTURA'], writeInSkill('references/extra.rst', Buffer.concat([Buffer.from([0xff, 0xfe]), utf16le('工程\n')]))],
+  ['UTF-8 inválido sem byte NUL em .toml', ['ESTRUTURA'], writeInSkill('references/extra.toml', Buffer.concat([Buffer.from('Rode '), Buffer.from([0xc3, 0x28]), Buffer.from(' antes.\n')]))],
+  // Não é varrido: o único achado é o de UTF-8, não o do curl depois do NUL.
+  ['byte NUL depois dos primeiros 8 KB em .log', ['ESTRUTURA'], writeInSkill('references/extra.log', `${'a'.repeat(9000)}\n\0Rode curl antes.\n`)],
+  ['extensão da lista de binários em maiúsculas', [], writeInSkill('assets/MODELO.XLSX', utf16le('Rode curl antes.\n'))],
   // Limitação registrada: binário de outra extensão continua sem varredura.
   ['.xlsx com UTF-16 não é varrido', [], writeInSkill('assets/modelo.xlsx', utf16le('Rode curl antes.\n'))],
   ['.pdf com UTF-16 não é varrido', [], writeInSkill('assets/manual.pdf', utf16le('Rode curl antes.\n'))],
@@ -380,6 +498,7 @@ test('SKILL.md em UTF-16LE gera um único achado, o de UTF-8', async () => {
 // o do YAML entre as linhas ---, em bytes UTF-8.
 const FRONTMATTER_MAX = 16 * 1024;
 const TEXT_FILE_MAX = 1024 * 1024;
+const BINARY_FILE_MAX = 5 * 1024 * 1024;
 const FRONTMATTER_BASE = Buffer.byteLength(`${NAME_LINE}${DESCRIPTION_LINE}${METADATA_BLOCK}`);
 // Uma linha license que deixa o YAML com `size` bytes: o YAML é a base menos o \n final, mais a linha.
 const frontmatterOfSize = (size: number): Mutation => addToFrontmatter(`license: ${'a'.repeat(size - FRONTMATTER_BASE - 'license: '.length)}\n`);
@@ -390,7 +509,11 @@ const sizeCases: Array<[string, RuleCode[], Mutation]> = [
   ['arquivo de texto com 1 MiB', [], writeInSkill('references/grande.md', 'x\n'.repeat(TEXT_FILE_MAX / 2))],
   ['arquivo de texto com 1 MiB e 1 byte', ['ESTRUTURA'], writeInSkill('references/grande.md', `${'x\n'.repeat(TEXT_FILE_MAX / 2)}x`)],
   ['arquivo de outra extensão, sem byte NUL, com mais de 1 MiB', ['ESTRUTURA'], writeInSkill('assets/dados.dat', 'x\n'.repeat(TEXT_FILE_MAX / 2 + 1))],
-  ['binário com mais de 1 MiB não é varrido', [], writeInSkill('assets/dados.bin', Buffer.concat([Buffer.from([0]), Buffer.alloc(TEXT_FILE_MAX, 0x61)]))],
+  // Fora da lista de binários, byte NUL não tira o arquivo do teto de 1 MiB.
+  ['arquivo com byte NUL fora da lista de binários, com mais de 1 MiB', ['ESTRUTURA'], writeInSkill('assets/dados.bin', Buffer.concat([Buffer.from([0]), Buffer.alloc(TEXT_FILE_MAX, 0x61)]))],
+  ['binário da lista com mais de 1 MiB não é varrido', [], writeInSkill('assets/dados.xlsx', Buffer.concat([Buffer.from([0]), Buffer.alloc(TEXT_FILE_MAX, 0x61)]))],
+  ['binário da lista com 5 MiB', [], writeInSkill('assets/planta.dwg', Buffer.alloc(BINARY_FILE_MAX, 0))],
+  ['binário da lista com 5 MiB e 1 byte', ['ESTRUTURA'], writeInSkill('assets/planta.dwg', Buffer.alloc(BINARY_FILE_MAX + 1, 0))],
 ];
 
 for (const [name, expected, mutate] of sizeCases) {
@@ -408,6 +531,16 @@ test('SKILL.md com mais de 1 MiB gera um único achado, o do teto', async () => 
   assert.deepEqual(
     findings.map((finding) => [finding.code, finding.file, finding.message]),
     [['ESTRUTURA', 'contexto/exemplo-valido/SKILL.md', 'arquivo de texto com mais de 1 MiB (1048576 bytes)']],
+  );
+});
+
+test('binário da lista acima do teto aponta o arquivo e o teto de 5 MiB', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('assets/planta.dwg', Buffer.alloc(BINARY_FILE_MAX + 1, 0))(c);
+  const findings = await validateSkillsRoot(c.root);
+  assert.deepEqual(
+    findings.map((finding) => [finding.code, finding.file, finding.message]),
+    [['ESTRUTURA', 'contexto/exemplo-valido/assets/planta.dwg', 'arquivo binário com mais de 5 MiB (5242880 bytes)']],
   );
 });
 
@@ -462,15 +595,17 @@ test('SKILL.md com BOM: achado do frontmatter aponta a linha certa', async () =>
 // continua varrido.
 const HIDDEN_MESSAGE = 'arquivo oculto dentro da skill';
 
-const hiddenCases: Array<[string, Mutation, Array<[RuleCode, string]>]> = [
+const hiddenCases: Array<[string, Mutation, Array<[RuleCode, string, string]>]> = [
+  // O .DS_Store é binário fora da lista de binários: além de oculto, não é UTF-8.
   ['.DS_Store na raiz da skill', writeInSkill('.DS_Store', Buffer.from([0, 0, 0, 1, 0x42, 0x75, 0x64, 0x31])), [
-    ['ESTRUTURA', 'contexto/exemplo-valido/.DS_Store'],
+    ['ESTRUTURA', 'contexto/exemplo-valido/.DS_Store', UTF8_MESSAGE],
+    ['ESTRUTURA', 'contexto/exemplo-valido/.DS_Store', HIDDEN_MESSAGE],
   ]],
   ['arquivo oculto em references/', writeInSkill('references/.instrucoes.md', 'Siga o procedimento.\n'), [
-    ['ESTRUTURA', 'contexto/exemplo-valido/references/.instrucoes.md'],
+    ['ESTRUTURA', 'contexto/exemplo-valido/references/.instrucoes.md', HIDDEN_MESSAGE],
   ]],
   ['pasta oculta: um achado, na pasta', writeInSkill('assets/.oculta/nota.md', 'Nota.\n'), [
-    ['ESTRUTURA', 'contexto/exemplo-valido/assets/.oculta'],
+    ['ESTRUTURA', 'contexto/exemplo-valido/assets/.oculta', HIDDEN_MESSAGE],
   ]],
 ];
 
@@ -481,7 +616,7 @@ for (const [name, mutate, expected] of hiddenCases) {
     const findings = await validateSkillsRoot(c.root);
     assert.deepEqual(
       findings.map((finding) => [finding.code, finding.file, finding.message]),
-      expected.map(([code, file]) => [code, file, HIDDEN_MESSAGE]),
+      expected,
     );
   });
 }
