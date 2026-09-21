@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { after, test } from 'node:test';
 import { AREAS } from '../src/areas.js';
@@ -180,10 +180,23 @@ test('skill com arquivo especial (não é link) dentro da pasta também falha', 
   await assert.rejects(buildCatalog(skillsRoot, pkg), CatalogBuildError);
 });
 
-test('skills/ real do repositório (só README) gera skills: []', async () => {
+// Confere contra a árvore, não contra o catalog.json commitado: a frescura do arquivo é do job
+// catalogo, e este teste não pode ficar vermelho junto com ele.
+test('skills/ real do repositório gera uma entrada por pasta de skill', async () => {
   const pkg = join(REPO_ROOT, 'cli', 'package.json');
-  const catalog = await buildCatalog(join(REPO_ROOT, 'skills'), pkg);
-  assert.deepEqual(catalog.skills, []);
+  const skillsRoot = join(REPO_ROOT, 'skills');
+  const catalog = await buildCatalog(skillsRoot, pkg);
+  const dirs: string[] = [];
+  for (const area of await readdir(skillsRoot, { withFileTypes: true })) {
+    if (area.isDirectory()) {
+      for (const skill of await readdir(join(skillsRoot, area.name), { withFileTypes: true })) {
+        if (skill.isDirectory()) {
+          dirs.push(`skills/${area.name}/${skill.name}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(catalog.skills.map((skill) => skill.path).sort(), dirs.sort());
   assert.deepEqual(catalog.areas, AREAS);
 });
 
