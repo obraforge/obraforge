@@ -1,0 +1,9 @@
+{
+  "name": "obraforge-deploy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Só a CLI da Vercel, fixada pelo lockfile, para o workflow de publicação do site (ADR-0010). Fora dos workspaces, para não entrar na árvore do repositório.",
+  "dependencies": {
+    "vercel": "59.25.0"
+  }
+}

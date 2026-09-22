@@ -182,8 +182,14 @@ test('o conteúdo de uma skill maliciosa não vira HTML nem script no site', () 
   assert.match(html, /href="https:\/\/github\.com\/obraforge\/obraforge\/blob\/main\/skills\/contexto\/skill-maliciosa\/references\/normas\.md"/, 'link relativo vai para o GitHub');
 });
 
+// ADR-0010: o site sobe já construído, e o vercel.json vai dentro dele (dashboard/public/ é copiado
+// para dist/), sem comando de build ou de instalação para a Vercel rodar.
 test('vercel.json declara CSP restritiva, HSTS, nosniff, Referrer-Policy e Permissions-Policy', () => {
-  const config = JSON.parse(readFileSync(join(DASHBOARD, 'vercel.json'), 'utf8'));
+  const config = JSON.parse(readFileSync(join(DIST, 'vercel.json'), 'utf8'));
+  assert.deepEqual(config, JSON.parse(readFileSync(join(DASHBOARD, 'public', 'vercel.json'), 'utf8')));
+  for (const key of ['buildCommand', 'installCommand', 'outputDirectory', 'framework']) {
+    assert.ok(!(key in config), `${key} no vercel.json publicado`);
+  }
   const headers = Object.fromEntries(config.headers.find((entry) => entry.source === '/(.*)').headers.map((header) => [header.key, header.value]));
   const csp = headers['Content-Security-Policy'] ?? '';
   for (const directive of ["default-src 'self'", "script-src 'self'", "style-src 'self'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) {

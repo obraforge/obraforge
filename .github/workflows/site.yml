@@ -1,0 +1,51 @@
+# Publicação do site do catálogo na Vercel (ADR-0010, que substitui a integração com o Git do
+# ADR-0009): o site é construído e testado aqui, e só o dashboard/dist sobe, com o vercel.json dos
+# cabeçalhos dentro. Roda só na main, no environment "producao", o único lugar onde existe o
+# VERCEL_TOKEN; PR, inclusive de fork, nunca chega a este workflow.
+name: Site
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-producao
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    name: publicar site
+    # Pulado, e visível como pulado, enquanto o projeto da Vercel não estiver configurado. As três
+    # variáveis (VERCEL_ORG_ID, VERCEL_PROJECT_ID, SITE_HOST) são do repositório, porque o if do job
+    # não vê variável de environment; não são segredo. O VERCEL_TOKEN fica só no environment.
+    if: vars.VERCEL_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Instalar dependências, sem scripts de instalação
+        run: npm ci --ignore-scripts
+      - name: Construir e testar a CLI e o site
+        run: npm run build --workspace cli && npm test --workspace dashboard
+        env:
+          VERCEL_PROJECT_PRODUCTION_URL: ${{ vars.SITE_HOST }}
+      - name: CLI da Vercel, fixada pelo lockfile de .github/deploy
+        run: npm ci --prefix .github/deploy --ignore-scripts
+      - name: Publicar em produção
+        run: .github/deploy/node_modules/.bin/vercel deploy dashboard/dist --prod --yes --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}

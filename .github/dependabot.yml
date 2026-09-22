@@ -12,6 +12,12 @@ updates:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
 
+  # CLI da Vercel do workflow do site (ADR-0010), fora dos workspaces, com lockfile próprio.
+  - package-ecosystem: npm
+    directory: /.github/deploy
+    schedule:
+      interval: weekly
+
   # Mantém os SHAs das actions em .github/workflows/ em dia.
   - package-ecosystem: github-actions
     directory: /
