@@ -137,5 +137,3 @@ jobs:
           scan-args: |-
             -L
             package-lock.json
-            -L
-            .github/deploy/package-lock.json

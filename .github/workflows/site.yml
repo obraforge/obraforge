@@ -1,6 +1,6 @@
 # Publicação do site do catálogo na Vercel (ADR-0010, que substitui a integração com o Git do
 # ADR-0009): o site é construído e testado aqui, e só o dashboard/dist sobe, com o vercel.json dos
-# cabeçalhos dentro. Roda só na main, no environment "producao", o único lugar onde existe o
+# cabeçalhos dentro, pela API REST da Vercel (tools/src/deploy-site.ts, sem dependência). Roda só na main, no environment "producao", o único lugar onde existe o
 # VERCEL_TOKEN; PR, inclusive de fork, nunca chega a este workflow.
 name: Site
 
@@ -37,14 +37,12 @@ jobs:
           node-version: '24'
       - name: Instalar dependências, sem scripts de instalação
         run: npm ci --ignore-scripts
-      - name: Construir e testar a CLI e o site
-        run: npm run build --workspace cli && npm test --workspace dashboard
+      - name: Construir a CLI e o tools, e construir e testar o site
+        run: npm run build --workspace cli && npm run build --workspace tools && npm test --workspace dashboard
         env:
           VERCEL_PROJECT_PRODUCTION_URL: ${{ vars.SITE_HOST }}
-      - name: CLI da Vercel, fixada pelo lockfile de .github/deploy
-        run: npm ci --prefix .github/deploy --ignore-scripts
       - name: Publicar em produção
-        run: .github/deploy/node_modules/.bin/vercel deploy dashboard/dist --prod --yes --token "$VERCEL_TOKEN"
+        run: node tools/dist/src/deploy-site-cli.js dashboard/dist
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
