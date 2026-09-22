@@ -38,6 +38,19 @@
       "references": [],
       "path": "skills/orcamento/validar-planilha-orcamentaria",
       "sha256": "7e7ed863fa019070befc14bc0749c8b376d151d44be4673be1ae6af99b17dc6d"
+    },
+    {
+      "name": "checklist-edital",
+      "area": "licitacao",
+      "phase": 1,
+      "version": "1.0.0",
+      "state": "publicada",
+      "description": "Extrai de um edital de licitação de obra ou serviço de engenharia os itens obrigatórios de habilitação (jurídica, técnica, fiscal, social e trabalhista, econômico-financeira), as declarações e as exigências da proposta, conforme a Lei nº 14.133/2021, e devolve um checklist com a cláusula de origem de cada item, sinalizando exigência atípica. Use quando o usuário pedir o checklist, a lista de documentos ou os requisitos para participar de uma licitação a partir do edital.",
+      "references": [
+        "Lei 14133"
+      ],
+      "path": "skills/licitacao/checklist-edital",
+      "sha256": "aae49dd86fa5fa3284bc7c393b53f34593a01f671e3e6053db627e7f49f84228"
     }
   ]
 }
