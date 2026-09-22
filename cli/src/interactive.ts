@@ -38,7 +38,9 @@ export async function interactive(io: Io, catalog: Catalog, cwd: string, package
     return cancel('Escolha inválida. Nada foi instalado.');
   }
   const skills = catalog.skills.filter((skill) => skill.area === area);
-  const skill = skills[(await prompter.choose('Escolha a skill:', skills.map((item) => `${sanitize(item.name)} — ${sanitize(item.description)}`))) ?? -1];
+  const label = (item: (typeof skills)[number]): string =>
+    `${sanitize(item.name)}${item.state === 'depreciada' ? ' (depreciada)' : ''} — ${sanitize(item.description)}`;
+  const skill = skills[(await prompter.choose('Escolha a skill:', skills.map(label))) ?? -1];
   if (skill === undefined) {
     return cancel('Escolha inválida. Nada foi instalado.');
   }

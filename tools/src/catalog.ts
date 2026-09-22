@@ -8,6 +8,7 @@ import { AREAS } from './areas.js';
 import { MAX_TEXT_FILE_BYTES } from './constants.js';
 import { isPlainObject, ownValue, parseFrontmatter, type FrontmatterData } from './frontmatter.js';
 import { readRetired } from './retired.js';
+import { isBlank } from './rules/frontmatter-fields.js';
 import { extractCitations } from './rules/norms.js';
 import { splitLines } from './text.js';
 import { readBytes, readSkillFile, walkTree, type Entry } from './tree.js';
@@ -196,6 +197,9 @@ function readState(metadata: FrontmatterData, skillDir: string): { state: SkillS
     throw new CatalogBuildError(`${skillDir}: metadata.obraforge-estado desconhecido (só "depreciada")`);
   }
   const deprecationReason = requireString(metadata, 'obraforge-motivo', skillDir, 'metadata.obraforge-motivo');
+  if (isBlank(deprecationReason)) {
+    throw new CatalogBuildError(`${skillDir}: metadata.obraforge-motivo vazio (só espaço ou caractere invisível)`);
+  }
   return { state: 'depreciada', deprecationReason };
 }
 

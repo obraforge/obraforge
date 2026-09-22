@@ -32,31 +32,31 @@
       "name": "validar-planilha-orcamentaria",
       "area": "orcamento",
       "phase": 1,
-      "version": "1.0.0",
+      "version": "1.0.1",
       "state": "publicada",
       "description": "Confere a estrutura de uma planilha orçamentária de obra — hierarquia da EAP, itens sem unidade ou quantidade, unidade incoerente com o serviço, totais que não fecham, ausência de BDI e de encargos sociais — e aponta cada problema com o item de origem. Use quando o usuário pedir para revisar, conferir ou validar um orçamento ou uma planilha de custos de obra.",
       "references": [],
       "path": "skills/orcamento/validar-planilha-orcamentaria",
-      "sha256": "7e7ed863fa019070befc14bc0749c8b376d151d44be4673be1ae6af99b17dc6d"
+      "sha256": "da7cf0c353b29d4e4ee822ecbabc2c3fd6e631d379ad5d83bda0ae8e81c2c420"
     },
     {
       "name": "checklist-edital",
       "area": "licitacao",
       "phase": 1,
-      "version": "1.0.0",
+      "version": "1.1.0",
       "state": "publicada",
       "description": "Extrai de um edital de licitação de obra ou serviço de engenharia os itens obrigatórios de habilitação (jurídica, técnica, fiscal, social e trabalhista, econômico-financeira), as declarações e as exigências da proposta, conforme a Lei nº 14.133/2021, e devolve um checklist com a cláusula de origem de cada item, sinalizando exigência atípica. Use quando o usuário pedir o checklist, a lista de documentos ou os requisitos para participar de uma licitação a partir do edital.",
       "references": [
         "Lei 14133"
       ],
       "path": "skills/licitacao/checklist-edital",
-      "sha256": "aae49dd86fa5fa3284bc7c393b53f34593a01f671e3e6053db627e7f49f84228"
+      "sha256": "30a9a8c91f10bb4e221405ac30cabfa8de41dcc9fcb689bf4b945467e2c84ee6"
     },
     {
       "name": "revisar-conformidade-documental",
       "area": "sst",
       "phase": 1,
-      "version": "1.0.0",
+      "version": "1.0.1",
       "state": "publicada",
       "description": "Confere a lista de documentos de uma obra contra um checklist genérico (PGR, PCMSO, ART ou RRT de execução, alvará de construção, memorial descritivo e projeto aprovado), com a NR ou a lei de cada um, e aponta o que falta e o que está vencido numa data de referência. Use quando o usuário pedir para revisar, auditar ou conferir a documentação legal ou de segurança de uma obra.",
       "references": [
@@ -67,7 +67,7 @@
         "Lei 12378"
       ],
       "path": "skills/sst/revisar-conformidade-documental",
-      "sha256": "16c83791ca30bab93a340c67e2013f74f60183efa5815a966a44cf6e315ae8f2"
+      "sha256": "094c2081f05367b6f89654482a07df5b08ea99a5940d67d6ae97a4090e7d5d46"
     }
   ]
 }

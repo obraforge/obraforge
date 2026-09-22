@@ -31,7 +31,9 @@ export function buildMarketplace(catalog: Catalog): Marketplace {
     plugins: catalog.skills.map((skill) => ({
       name: skill.name,
       description: skill.state === 'depreciada' ? `Depreciada: ${skill.deprecationReason ?? ''} ${skill.description}` : skill.description,
-      version: skill.version,
+      // O Claude Code só atualiza o plugin quando esta string muda: o começo do hash garante que
+      // conteúdo novo vira versão nova, mesmo que a obraforge-versao não suba.
+      version: `${skill.version}+${skill.sha256.slice(0, 12)}`,
       source: { source: 'git-subdir', url: REPO_GIT_URL, path: skill.path, ref: `v${catalog.version}` },
       strict: false,
     })),

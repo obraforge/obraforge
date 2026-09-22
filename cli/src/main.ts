@@ -111,7 +111,7 @@ export async function run(argv: readonly string[], env?: RunEnv): Promise<number
 
   if (command === 'search') {
     const extra = onlyOptions([]);
-    if (rest.length === 0 || extra !== undefined) {
+    if (rest.join('').trim() === '' || extra !== undefined) {
       return usage(extra !== undefined ? `Opção --${extra} não se aplica a "search".` : '"search" precisa de um termo. Exemplo: obraforge search edital');
     }
     return printCommand(searchCommand(rest.join(' '), env?.catalogJson));
@@ -163,6 +163,9 @@ function print(result: AddResult): number {
   }
   for (const line of result.stderr) {
     console.error(line);
+  }
+  if (result.summary !== undefined) {
+    console.log(result.summary);
   }
   return result.code;
 }

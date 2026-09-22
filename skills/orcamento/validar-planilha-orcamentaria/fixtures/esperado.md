@@ -27,6 +27,8 @@ A skill **não** deve apontar como problema:
 - **Encargos sociais:** estão declarados no cabeçalho (80,00%, horista, sem desoneração).
 - **Total geral:** fecha com a soma dos subtotais como estão na planilha. Dizer que ele herda a
   diferença do subtotal 3 é correto e não conta como sétimo problema.
+- **Subtotal 5:** fecha com os itens listados sob o grupo 5, inclusive o 7.1. O 7.1 é erro de
+  hierarquia (problema 4), não de soma.
 - Os demais itens, subtotais e unidades estão consistentes.
 
 ## Limites que a resposta precisa respeitar

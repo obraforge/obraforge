@@ -392,3 +392,10 @@ test('sem skills/retiradas.txt, retired é lista vazia', async () => {
   const catalog = await buildCatalog(skillsRoot, await writePackage(root, '9.9.9'));
   assert.deepEqual(catalog.retired, []);
 });
+
+test('G1: depreciada com motivo só de caractere invisível faz o gerador falhar', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  await writeSkillWithMetadata(skillsRoot, 'contexto', 'exemplo-invisivel', ['  obraforge-estado: "depreciada"', '  obraforge-motivo: "\u200B"']);
+  await assert.rejects(buildCatalog(skillsRoot, await writePackage(root, '9.9.9')), /obraforge-motivo/);
+});

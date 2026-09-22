@@ -135,6 +135,8 @@ test('o conteúdo de uma skill maliciosa não vira HTML nem script no site', () 
       '![imagem](https://evil.example/rastreio.png)', '',
       '<iframe src="https://evil.example"></iframe>', '',
       '[referência](references/normas.md)', '',
+      // G1, lente de segurança, achado 4: link relativo que sobe para fora da pasta da skill.
+      '[fora](../../../../../../attacker/repo/blob/main/EVIL.md) e [fora2](%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/attacker/x)', '',
     ].join('\n'),
     'fixtures/entrada.md': 'x\n',
     'fixtures/esperado.md': '<script>alert("esperado")</script>\n<style>body{display:none}</style>\n',
@@ -175,6 +177,7 @@ test('o conteúdo de uma skill maliciosa não vira HTML nem script no site', () 
   assert.ok(!html.includes('evil.example/x'), 'link sem esquema (//host) removido');
   assert.ok(!/href="data:/.test(html), 'link data: removido');
   assert.match(html, /clique aqui/, 'o texto do link removido continua');
+  assert.ok(!html.includes('attacker'), 'link relativo que sai da pasta da skill');
   assert.match(html, /&lt;script&gt;alert\(&quot;skill&quot;\)&lt;\/script&gt;/, 'o HTML do autor aparece escapado, como texto');
   assert.match(html, /href="https:\/\/github\.com\/obraforge\/obraforge\/blob\/main\/skills\/contexto\/skill-maliciosa\/references\/normas\.md"/, 'link relativo vai para o GitHub');
 });

@@ -77,6 +77,9 @@ const usageCases: Array<[string, string[], RegExp]> = [
   ['list com --for', ['list', '--for', 'claude'], /Argumento inesperado para "list": --for/],
   ['list com --fase inválida', ['list', '--fase', 'um'], /--fase deve ser um número inteiro/],
   ['search sem termo', ['search'], /precisa de um termo/],
+  // G1, achado 5: termo vazio ou só espaço casava tudo.
+  ['search com termo vazio', ['search', ''], /precisa de um termo/],
+  ['search com termo só de espaço', ['search', '   '], /precisa de um termo/],
   ['search com --yes', ['search', 'edital', '--yes'], /não se aplica a "search"/],
   ['opção sem comando', ['--yes'], /precisa de um comando/],
 ];

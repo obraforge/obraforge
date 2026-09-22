@@ -30,6 +30,12 @@ const METADATA_KEYS = ['obraforge-area', 'obraforge-fase', 'obraforge-versao'] a
 const STATE_KEYS = ['obraforge-estado', 'obraforge-motivo'] as const;
 const ALLOWED_METADATA_KEYS: readonly string[] = [...METADATA_KEYS, ...STATE_KEYS];
 const DEPRECATED = 'depreciada';
+// Motivo feito só de espaço ou de caractere invisível (U+200B, U+2060, U+00AD...) é motivo vazio:
+// trim() não tira os de formatação, e o terminal e o site não mostrariam nada.
+const INVISIBLE_OR_SPACE = /[\p{Z}\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}\s]/gu;
+export function isBlank(text: string): boolean {
+  return text.replace(INVISIBLE_OR_SPACE, '') === '';
+}
 const REASON_MAX = 500;
 
 export function checkName(data: FrontmatterData, retired: ReadonlySet<string>, ctx: Context): Finding[] {
@@ -162,7 +168,7 @@ export function checkMetadata(data: FrontmatterData, ctx: Context): Finding[] {
   }
   const reason = ownValue(metadata, 'obraforge-motivo');
   if (typeof reason === 'string') {
-    if (reason.trim() === '') {
+    if (isBlank(reason)) {
       finding('obraforge-motivo', 'obraforge-motivo vazio');
     } else if ([...reason].length > REASON_MAX) {
       finding('obraforge-motivo', `obraforge-motivo com ${[...reason].length} caracteres (máximo ${REASON_MAX})`);

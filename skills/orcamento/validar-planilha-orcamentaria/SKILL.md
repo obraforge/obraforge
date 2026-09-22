@@ -4,7 +4,7 @@ description: Confere a estrutura de uma planilha orçamentária de obra — hier
 metadata:
   obraforge-area: "orcamento"
   obraforge-fase: "1"
-  obraforge-versao: "1.0.0"
+  obraforge-versao: "1.0.1"
 ---
 
 # Validar planilha orçamentária
@@ -40,8 +40,9 @@ nesse padrão.
    item com preço unitário é apontada, mesmo que o total da linha seja zero.
 5. **Total do item.** O total da linha é a quantidade vezes o preço unitário. Diferença de
    arredondamento de centavos (até R$ 0,01 por linha) **não é erro** e não deve ser apontada.
-6. **Subtotais e total geral.** Cada subtotal é a soma dos itens do grupo; o total é a soma dos
-   subtotais. Aponte o subtotal que não fecha com o valor encontrado, o valor calculado e a
+6. **Subtotais e total geral.** Cada subtotal é a soma dos itens listados sob o grupo, na ordem da
+   planilha, inclusive um item mal numerado (que já é apontado na hierarquia, sem virar um segundo
+   erro de soma); o total é a soma dos subtotais. Aponte o subtotal que não fecha com o valor encontrado, o valor calculado e a
    diferença. Se o total geral só herda a diferença de um subtotal, diga isso em vez de contar um
    erro novo.
 7. **BDI.** Existe uma linha ou um percentual de BDI aplicado sobre o custo direto, ou a planilha
