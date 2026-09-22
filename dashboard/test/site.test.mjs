@@ -43,14 +43,14 @@ function tagNames(html) {
 // do vercel.json (script-src e style-src 'self') depende disso.
 function auditPage(html) {
   const problems = [];
-  for (const [, attrs, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
-    if (!/\bsrc=/.test(attrs) && !/application\/ld\+json/.test(attrs) && body.trim() !== '') problems.push('script em linha');
-    if (/\bsrc="(https?:)?\/\//.test(attrs)) problems.push('script de outro host');
+  for (const [, attrs, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script[^>]*>/gi)) {
+    if (!/\bsrc=/i.test(attrs) && !/application\/ld\+json/i.test(attrs) && body.trim() !== '') problems.push('script em linha');
+    if (/\bsrc="(https?:)?\/\//i.test(attrs)) problems.push('script de outro host');
   }
-  if (/<style\b/.test(html)) problems.push('<style> em linha');
-  if (/\sstyle=/.test(html)) problems.push('atributo style');
-  if (/<(link|img|iframe|source|video|audio)\b[^>]*\s(src|href)="(https?:)?\/\//.test(html.replace(/<a\b[^>]*>/g, ''))) problems.push('recurso de outro host');
-  if (/<iframe\b|<object\b|<embed\b/.test(html)) problems.push('iframe, object ou embed');
+  if (/<style\b/i.test(html)) problems.push('<style> em linha');
+  if (/<[a-z][^<>]*\sstyle\s*=/i.test(html)) problems.push('atributo style');
+  if (/<(link|img|iframe|source|video|audio)\b[^>]*\s(src|href)="(https?:)?\/\//i.test(html.replace(/<a\b[^>]*>/gi, ''))) problems.push('recurso de outro host');
+  if (/<(iframe|object|embed)\b/i.test(html)) problems.push('iframe, object ou embed');
   if (eventAttributes(html).length > 0) problems.push('atributo de evento');
   if (/href="\s*javascript:/i.test(html)) problems.push('link javascript:');
   return problems;
@@ -61,6 +61,8 @@ test('a auditoria acusa atributo de evento em tag de verdade e ignora o texto es
   assert.deepEqual(auditPage('<p>&lt;img src=&quot;x&quot; onerror=&quot;x()&quot;&gt;</p>'), []);
   assert.deepEqual(auditPage('<meta name="description" content="Texto <img src=x onerror=alert(5)>.">'), []);
   assert.deepEqual(auditPage('<b onclick=x>t</b>'), ['atributo de evento']);
+  assert.deepEqual(auditPage('<SCRIPT>alert(1)</SCRIPT >'), ['script em linha']);
+  assert.deepEqual(auditPage('<Style>p{}</Style>'), ['<style> em linha']);
 });
 
 test('nenhuma página tem script ou estilo em linha, nem carrega recurso de outro host', () => {
