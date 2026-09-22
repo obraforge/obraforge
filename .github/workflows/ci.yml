@@ -89,8 +89,9 @@ jobs:
           cache: npm
       - name: Instalar dependências
         run: npm ci
+      # Só a CLI: o site não é construído no Windows (o script dele usa sintaxe de shell POSIX).
       - name: Build e testes da CLI
-        run: npm run build && npm test --workspace cli
+        run: npm run build --workspace cli && npm test --workspace cli
 
   build:
     name: build

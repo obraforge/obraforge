@@ -1,0 +1,24 @@
+---
+import { firstSentence, type Skill } from '../lib/catalog.js';
+
+interface Props {
+  skills: readonly Skill[];
+  summary?: boolean;
+}
+const { skills, summary = false } = Astro.props;
+// Texto de busca sem acento e sem caixa, igual ao search da CLI.
+const fold = (value: string): string => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+---
+<ul class="divide-y divide-line border-y border-line" data-lista>
+  {skills.map((skill) => (
+    <li class="py-4" data-skill data-area={skill.area} data-fase={String(skill.phase)} data-texto={fold(`${skill.name} ${skill.area} ${skill.description}`)}>
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <a href={`/skills/${skill.name}`} class="font-mono font-semibold text-base">{skill.name}</a>
+        <span class="font-mono text-xs text-ink-2">
+          {skill.area} · fase {skill.phase} · v{skill.version}{skill.state === 'depreciada' && ' · depreciada'}
+        </span>
+      </div>
+      <p class="mt-1 text-ink-2">{summary ? firstSentence(skill.description) : skill.description}</p>
+    </li>
+  ))}
+</ul>

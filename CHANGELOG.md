@@ -4,6 +4,10 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ## [Não lançado]
 
+### Adicionadas
+
+- No repositório, fora do pacote: o site do catálogo em `dashboard/` (Astro estático), gerado do `catalog.json` e dos arquivos das skills, sem cookie, sem analytics e sem script de terceiro.
+
 ## [0.1.0] — 2026-09-21
 
 Primeira release com skills: as três da fase 1 e a instalação por `npx obraforge add`.

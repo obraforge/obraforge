@@ -1,0 +1,53 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-line: var(--line);
+  --color-grid: var(--grid);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-notice-bg: var(--notice-bg);
+  --color-notice-ink: var(--notice-ink);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  html {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+  a {
+    color: var(--accent);
+    text-underline-offset: 3px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Grade fina de papel milimetrado, só no carimbo. */
+.carimbo {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+/* Corpo do SKILL.md renderizado. */
+.prosa h1 { font-size: 1.5rem; font-weight: 650; margin: 1.5rem 0 0.5rem; }
+.prosa h2 { font-size: 1.125rem; font-weight: 650; margin: 1.5rem 0 0.5rem; }
+.prosa h3 { font-weight: 650; margin: 1rem 0 0.25rem; }
+.prosa p, .prosa ul, .prosa ol, .prosa table, .prosa blockquote { margin: 0.5rem 0; }
+.prosa ul { list-style: disc; padding-left: 1.5rem; }
+.prosa ol { list-style: decimal; padding-left: 1.5rem; }
+.prosa code { font-family: var(--font-mono); font-size: 0.875em; }
+.prosa pre { font-family: var(--font-mono); font-size: 0.875rem; border: 1px solid var(--line); padding: 0.75rem; overflow-x: auto; }
+.prosa blockquote { border-left: 4px solid var(--line); padding-left: 0.75rem; color: var(--ink-2); }
+.prosa table { border-collapse: collapse; display: block; overflow-x: auto; }
+.prosa th, .prosa td { border: 1px solid var(--line); padding: 0.25rem 0.5rem; text-align: left; }

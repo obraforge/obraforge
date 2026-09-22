@@ -1,0 +1,27 @@
+---
+import type { Skill } from '../lib/catalog.js';
+
+interface Props {
+  skill: Skill;
+}
+const { skill } = Astro.props;
+const rows: Array<[string, string]> = [
+  ['Área', skill.area],
+  ['Fase', String(skill.phase)],
+  ['Versão', skill.version],
+  ['Estado', skill.state],
+  ['Licença', 'MIT'],
+  ['SHA-256', skill.sha256],
+];
+---
+<table class="carimbo w-full border border-ink font-mono text-sm">
+  <caption class="sr-only">Dados da skill</caption>
+  <tbody>
+    {rows.map(([label, value]) => (
+      <tr class="border-b border-line last:border-b-0">
+        <th scope="row" class="px-3 py-1.5 text-left text-xs uppercase tracking-wide text-ink-2 font-normal align-top whitespace-nowrap">{label}</th>
+        <td class={`px-3 py-1.5 ${label === 'SHA-256' ? 'break-all text-xs' : ''}`}>{value}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
