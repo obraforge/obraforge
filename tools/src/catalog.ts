@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { AREAS } from './areas.js';
 import { MAX_TEXT_FILE_BYTES } from './constants.js';
 import { isPlainObject, ownValue, parseFrontmatter, type FrontmatterData } from './frontmatter.js';
+import { readRetired } from './retired.js';
 import { extractCitations } from './rules/norms.js';
 import { splitLines } from './text.js';
 import { readBytes, readSkillFile, walkTree, type Entry } from './tree.js';
@@ -14,11 +15,18 @@ import { readBytes, readSkillFile, walkTree, type Entry } from './tree.js';
 // Erro esperado (fail-closed): a skill não pôde ser catalogada. Distinto de erro inesperado.
 export class CatalogBuildError extends Error {}
 
+// Estado da skill no catálogo (ADR-0007). Retirada não é estado de entrada: a pasta sai de skills/
+// e o nome vai para "retired".
+export type SkillState = 'publicada' | 'depreciada';
+
 export interface CatalogSkillEntry {
   name: string;
   area: string;
   phase: number;
   version: string;
+  state: SkillState;
+  // Só em skill depreciada.
+  deprecationReason?: string;
   description: string;
   references: string[];
   path: string;
@@ -28,6 +36,7 @@ export interface CatalogSkillEntry {
 export interface Catalog {
   version: string;
   areas: readonly string[];
+  retired: string[];
   skills: CatalogSkillEntry[];
 }
 
@@ -49,8 +58,9 @@ export async function buildCatalog(skillsRoot: string, cliPackagePath: string): 
     skills.push(await buildSkillEntry(skillsRoot, skillDir, entries));
   }
   skills.sort(compareEntries);
+  const retired = [...(await readRetired(skillsRoot, entries))].sort(compareBytes);
 
-  return { version, areas: AREAS, skills };
+  return { version, areas: AREAS, retired, skills };
 }
 
 export function formatCatalogJson(catalog: Catalog): string {
@@ -159,6 +169,7 @@ async function buildSkillEntry(root: string, skillDir: string, allEntries: reado
     throw new CatalogBuildError(`${skillDir}: metadata.obraforge-fase não é um número inteiro`);
   }
   const version = requireString(metadata, 'obraforge-versao', skillDir, 'metadata.obraforge-versao');
+  const state = readState(metadata, skillDir);
 
   const sha256 = await hashSkillFiles(skillAbs, scoped);
   const references = await readReferences(skillAbs, scoped);
@@ -168,11 +179,24 @@ async function buildSkillEntry(root: string, skillDir: string, allEntries: reado
     area,
     phase: Number(phaseRaw),
     version,
+    ...state,
     description,
     references,
     path: `skills/${skillDir}`,
     sha256,
   };
+}
+
+// Fail-closed: estado que não é um dos conhecidos faz o gerador falhar, nunca vira "publicada".
+function readState(metadata: FrontmatterData, skillDir: string): { state: SkillState; deprecationReason?: string } {
+  if (!Object.hasOwn(metadata, 'obraforge-estado')) {
+    return { state: 'publicada' };
+  }
+  if (ownValue(metadata, 'obraforge-estado') !== 'depreciada') {
+    throw new CatalogBuildError(`${skillDir}: metadata.obraforge-estado desconhecido (só "depreciada")`);
+  }
+  const deprecationReason = requireString(metadata, 'obraforge-motivo', skillDir, 'metadata.obraforge-motivo');
+  return { state: 'depreciada', deprecationReason };
 }
 
 // Qualquer segmento do caminho relativo à skill começando com "." (arquivo oculto, ou dentro de

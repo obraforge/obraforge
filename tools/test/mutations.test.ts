@@ -787,6 +787,15 @@ const frontmatterFieldCases: Array<[string, RuleCode[], Mutation]> = [
   ['compatibility com 501 caracteres', ['METADATA'], addToFrontmatter(`compatibility: ${'🏗'.repeat(501)}\n`)],
   ['chave extra de texto no metadata', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  outra: "x"\n`)],
   ['chave do Claude Code dentro do metadata', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  paths: "*.md"\n`)],
+  // Estado da skill (ADR-0007): só "depreciada", sempre com o motivo; motivo nunca sozinho.
+  ['skill depreciada com motivo', [], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "Norma revogada."\n`)],
+  ['estado fora da lista', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "retirada"\n  obraforge-motivo: "Norma revogada."\n`)],
+  ['estado publicada escrito à mão', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "publicada"\n`)],
+  ['depreciada sem motivo', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n`)],
+  ['depreciada com motivo vazio', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "  "\n`)],
+  ['motivo sem estado', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-motivo: "Norma revogada."\n`)],
+  ['motivo com 500 caracteres', [], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "${'á'.repeat(500)}"\n`)],
+  ['motivo com 501 caracteres', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "${'á'.repeat(501)}"\n`)],
 ];
 
 for (const [name, expected, mutate] of frontmatterFieldCases) {
@@ -803,7 +812,7 @@ test('chave extra do metadata aponta a linha e o nome da chave', async () => {
   const findings = await validateSkillsRoot(c.root);
   assert.deepEqual(
     findings.map((finding) => [finding.code, finding.line, finding.message]),
-    [['METADATA', 8, 'metadata.outra fora da lista (só obraforge-area, obraforge-fase e obraforge-versao)']],
+    [['METADATA', 8, 'metadata.outra fora da lista (só obraforge-area, obraforge-fase, obraforge-versao, obraforge-estado e obraforge-motivo)']],
   );
 });
 
@@ -836,3 +845,49 @@ test('raiz inexistente é erro, não "nenhum achado"', async () => {
   const dir = await makeTempDir();
   await assert.rejects(validateSkillsRoot(join(dir, 'nao-existe')), /ENOENT/);
 });
+
+// Fixture só em texto (ADR-0008): binário da lista branca é aceito fora de fixtures/, nunca dentro.
+const FIXTURE_BINARY_MESSAGE = 'arquivo binário em fixtures/: a fixture é só texto (ADR-0008)';
+const fixtureBinaryCases: Array<[string, string]> = [
+  ['planilha como entrada', 'fixtures/entrada.xlsx'],
+  ['PDF extra na fixture', 'fixtures/edital.pdf'],
+  ['extensão em maiúsculas', 'fixtures/ENTRADA.XLSX'],
+  ['binário em subpasta da fixture', 'fixtures/anexos/planta.dwg'],
+];
+
+for (const [name, path] of fixtureBinaryCases) {
+  test(`ESTRUTURA acusa binário em fixtures/: ${name}`, async () => {
+    const c = await copyValidCase();
+    await writeInSkill(path, Buffer.from([0x50, 0x4b, 0x03, 0x04]))(c);
+    const findings = await validateSkillsRoot(c.root);
+    assert.deepEqual(
+      findings.map((finding) => [finding.code, finding.file, finding.message]),
+      [['ESTRUTURA', `contexto/exemplo-valido/${path}`, FIXTURE_BINARY_MESSAGE]],
+    );
+  });
+}
+
+test('binário da lista branca continua aceito em assets/', async () => {
+  const c = await copyValidCase();
+  await writeInSkill('assets/modelo.xlsx', Buffer.from([0x50, 0x4b, 0x03, 0x04]))(c);
+  assert.deepEqual(await codesOf(c.root), []);
+});
+
+const stateMessageCases: Array<[string, string, string[]]> = [
+  ['estado fora da lista', '  obraforge-estado: "retirada"\n  obraforge-motivo: "Norma revogada."\n', ['obraforge-estado só aceita "depreciada" (publicada é o padrão, sem o campo)']],
+  ['depreciada sem motivo', '  obraforge-estado: "depreciada"\n', ['skill depreciada sem metadata.obraforge-motivo']],
+  ['motivo sem estado', '  obraforge-motivo: "Norma revogada."\n', ['obraforge-motivo sem obraforge-estado: o motivo só existe em skill depreciada']],
+  ['motivo vazio', '  obraforge-estado: "depreciada"\n  obraforge-motivo: "  "\n', ['obraforge-motivo vazio']],
+];
+
+for (const [name, lines, messages] of stateMessageCases) {
+  test(`METADATA de estado aponta a mensagem certa: ${name}`, async () => {
+    const c = await copyValidCase();
+    await editSkill(METADATA_BLOCK, `${METADATA_BLOCK}${lines}`)(c);
+    const findings = await validateSkillsRoot(c.root);
+    assert.deepEqual(
+      findings.map((finding) => finding.message),
+      messages,
+    );
+  });
+}

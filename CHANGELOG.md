@@ -4,6 +4,11 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ## [Não lançado]
 
+### Alteradas
+
+- `catalog.json` ganha, por skill, `state` (`publicada` ou `depreciada`) e `deprecationReason` quando depreciada, e no topo `retired`, com os nomes de `skills/retiradas.txt` ([ADR-0007](docs/adr/0007-estado-da-skill.md)).
+- No repositório, fora do pacote: o validador aceita `obraforge-estado` e `obraforge-motivo` no `metadata` (só para skill depreciada) e recusa arquivo binário em `fixtures/` ([ADR-0008](docs/adr/0008-fixture-so-em-texto.md)).
+
 ## [0.0.1] — 2026-09-21
 
 Primeira release funcional, publicada pelo workflow de release do repositório, com provenance. O catálogo ainda não tem nenhuma skill.

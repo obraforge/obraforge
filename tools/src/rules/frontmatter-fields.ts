@@ -25,6 +25,12 @@ const SEMVER_MAX = 256;
 
 const PHASES = ['1', '2', '3', '4'];
 const METADATA_KEYS = ['obraforge-area', 'obraforge-fase', 'obraforge-versao'] as const;
+// Estado da skill (ADR-0007): as duas chaves só aparecem em skill depreciada. Publicada é o padrão,
+// sem campo; retirada é a pasta removida e o nome em skills/retiradas.txt.
+const STATE_KEYS = ['obraforge-estado', 'obraforge-motivo'] as const;
+const ALLOWED_METADATA_KEYS: readonly string[] = [...METADATA_KEYS, ...STATE_KEYS];
+const DEPRECATED = 'depreciada';
+const REASON_MAX = 500;
 
 export function checkName(data: FrontmatterData, retired: ReadonlySet<string>, ctx: Context): Finding[] {
   const finding = (message: string): Finding => ({ code: 'NOME', file: ctx.file, line: ctx.lineOfKey(['name']), message });
@@ -117,8 +123,11 @@ export function checkMetadata(data: FrontmatterData, ctx: Context): Finding[] {
   }
   // Lista branca: o metadata só leva os campos do obraforge.
   for (const key of Object.keys(metadata)) {
-    if (!(METADATA_KEYS as readonly string[]).includes(key)) {
-      finding(key, `metadata.${key} fora da lista (só obraforge-area, obraforge-fase e obraforge-versao)`);
+    if (!ALLOWED_METADATA_KEYS.includes(key)) {
+      finding(
+        key,
+        `metadata.${key} fora da lista (só obraforge-area, obraforge-fase, obraforge-versao, obraforge-estado e obraforge-motivo)`,
+      );
     }
   }
 
@@ -137,6 +146,27 @@ export function checkMetadata(data: FrontmatterData, ctx: Context): Finding[] {
   const version = ownValue(metadata, 'obraforge-versao');
   if (typeof version === 'string' && (version.length > SEMVER_MAX || !SEMVER_PATTERN.test(version))) {
     finding('obraforge-versao', 'obraforge-versao fora do SemVer 2.0.0');
+  }
+
+  const hasState = Object.hasOwn(metadata, 'obraforge-estado');
+  const hasReason = Object.hasOwn(metadata, 'obraforge-motivo');
+  const state = ownValue(metadata, 'obraforge-estado');
+  if (typeof state === 'string' && state !== DEPRECATED) {
+    finding('obraforge-estado', 'obraforge-estado só aceita "depreciada" (publicada é o padrão, sem o campo)');
+  }
+  if (hasState && !hasReason) {
+    finding('obraforge-estado', 'skill depreciada sem metadata.obraforge-motivo');
+  }
+  if (hasReason && !hasState) {
+    finding('obraforge-motivo', 'obraforge-motivo sem obraforge-estado: o motivo só existe em skill depreciada');
+  }
+  const reason = ownValue(metadata, 'obraforge-motivo');
+  if (typeof reason === 'string') {
+    if (reason.trim() === '') {
+      finding('obraforge-motivo', 'obraforge-motivo vazio');
+    } else if ([...reason].length > REASON_MAX) {
+      finding('obraforge-motivo', `obraforge-motivo com ${[...reason].length} caracteres (máximo ${REASON_MAX})`);
+    }
   }
   return findings;
 }

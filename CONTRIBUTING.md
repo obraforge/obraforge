@@ -14,6 +14,14 @@ Obrigado por considerar contribuir. Este documento descreve o fluxo completo, da
 
 Correção de skill já publicada segue o mesmo fluxo de revisão, com a versão da skill subindo e a mudança registrada no changelog. Skill cuja norma foi revogada é depreciada por PR, com o motivo registrado, antes de ser corrigida ou retirada. Vulnerabilidade em skill publicada é relatada pelo canal privado do [`SECURITY.md`](./SECURITY.md) e leva à retirada imediata na próxima release de correção.
 
+### Estado da skill
+
+O estado vive assim ([ADR-0007](docs/adr/0007-estado-da-skill.md)):
+
+- **Publicada:** o padrão, sem campo de estado.
+- **Depreciada:** duas chaves no `metadata` do `SKILL.md`, sempre juntas: `obraforge-estado: "depreciada"` e `obraforge-motivo: "<motivo>"` (até 500 caracteres). Depreciar sobe a versão da skill e entra no changelog; a CLI mostra o motivo e pede confirmação antes de instalar.
+- **Retirada:** a pasta sai de `skills/`, e o nome entra no fim do `skills/retiradas.txt`. O motivo vai no changelog. A CLI recusa a instalação.
+
 ## Estrutura obrigatória de uma skill
 
 ```
@@ -49,10 +57,10 @@ Cada regra tem um código estável, exibido na saída junto com o arquivo e a li
 
 | Código | Falha quando |
 | --- | --- |
-| `ESTRUTURA` | Falta `SKILL.md`, `fixtures/entrada.*`, `fixtures/esperado.md` ou `references/normas.md`; frontmatter ilegível ou com mais de 16 KiB; arquivo que não é texto UTF-8 nem tem extensão binária aceita; texto com mais de 1 MiB ou binário com mais de 5 MiB; arquivo ou pasta oculto, ou com caractere invisível no nome |
+| `ESTRUTURA` | Falta `SKILL.md`, `fixtures/entrada.*`, `fixtures/esperado.md` ou `references/normas.md`; frontmatter ilegível ou com mais de 16 KiB; arquivo que não é texto UTF-8 nem tem extensão binária aceita; arquivo binário dentro de `fixtures/` ([ADR-0008](docs/adr/0008-fixture-so-em-texto.md)); texto com mais de 1 MiB ou binário com mais de 5 MiB; arquivo ou pasta oculto, ou com caractere invisível no nome |
 | `NOME` | `name` fora da regra do padrão, diferente do nome da pasta, ou presente em `skills/retiradas.txt` |
 | `DESCRICAO` | `description` vazia ou com mais de 1024 caracteres |
-| `METADATA` | Falta `obraforge-area`, `obraforge-fase` ou `obraforge-versao`; chave extra no `metadata`; área fora das 23 áreas mais `contexto`; área diferente da pasta pai; fase fora de `1` a `4`; versão fora do semver; `license` ou `compatibility` com tipo inválido |
+| `METADATA` | Falta `obraforge-area`, `obraforge-fase` ou `obraforge-versao`; chave no `metadata` fora dessas três e de `obraforge-estado` e `obraforge-motivo`; área fora das 23 áreas mais `contexto`; área diferente da pasta pai; fase fora de `1` a `4`; versão fora do semver; `obraforge-estado` diferente de `depreciada`, ou sem `obraforge-motivo`; motivo sem estado, vazio ou com mais de 500 caracteres; `license` ou `compatibility` com tipo inválido |
 | `SCRIPTS` | Pasta `scripts/`, ou arquivo com extensão de código (`.sh`, `.py`, `.js`, `.ps1`...) em qualquer pasta da skill, enquanto o projeto estiver antes da fase 3 |
 | `NORMA` | Citação no `SKILL.md` que casa com o padrão de norma (`NR-nn`, `NBR nnnn`, `Lei n.nnn/aaaa`, `Resolução ... nº`, `Decreto n.nnn/aaaa`) sem entrada correspondente em `references/normas.md`, ou entrada sem título, ano ou fonte |
 | `AVISO` | Falta, no `SKILL.md`, o aviso-padrão de que a skill não substitui o responsável técnico (texto exato no template em `docs/template-skill/`) |
@@ -63,6 +71,8 @@ Cada regra tem um código estável, exibido na saída junto com o arquivo e a li
 ## Fixture: só dado sintético
 
 A fixture (`fixtures/entrada.*` e `fixtures/esperado.md`) é sempre um caso **inventado**: planilha, edital, lista de documentos ou memorial sintético, com erros ou lacunas plantados. **Nenhum dado real de cliente, obra ou pessoa entra numa fixture.** O `esperado.md` lista o que a skill precisa apontar.
+
+A fixture é **só texto** ([ADR-0008](docs/adr/0008-fixture-so-em-texto.md)): planilha em CSV, edital ou lista em Markdown. Arquivo binário (`.xlsx`, `.pdf`, `.dwg`...) em `fixtures/` é recusado, porque o validador não consegue varrer o conteúdo dele atrás de dado pessoal.
 
 ## Referência normativa
 

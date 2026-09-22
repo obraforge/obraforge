@@ -24,3 +24,6 @@ Decisões* (ChatPRD, v1.1 de 13/09/2026). Onde um ADR divergir de uma decisão D
 | [0004](0004-token-permissions-9-no-release.md) | Token-Permissions em 9 por causa do job de release | Aceito; revogado em parte pelo 0005 |
 | [0005](0005-token-permissions-deu-10.md) | Token-Permissions deu 10: o critério do D2 volta a valer inteiro | Aceito; revoga em parte o 0004 |
 | [0006](0006-endurecimento-do-validador.md) | Endurecimento do validador depois do gate da fase 0 | Aceito |
+| [0007](0007-estado-da-skill.md) | Onde vive o estado depreciada ou retirada de uma skill | Aceito; revoga em parte o 0006 (lista branca do `metadata`) |
+| [0008](0008-fixture-so-em-texto.md) | Fixture só em texto | Aceito; resolve a limitação do 0006 em `fixtures/` |
+| [0009](0009-vercel-hobby-e-integracao-com-o-git.md) | Site na Vercel: plano Hobby e deploy pela integração com o Git | Aceito |
