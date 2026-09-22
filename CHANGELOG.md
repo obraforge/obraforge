@@ -4,6 +4,10 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ## [Não lançado]
 
+## [0.1.0] — 2026-09-21
+
+Primeira release com skills: as três da fase 1 e a instalação por `npx obraforge add`.
+
 ### Adicionadas
 
 - CLI `add <skill...> [--for claude|codex|gemini|agents] [--yes] [--force]`: confere o hash da skill embutida contra o catálogo e copia para `.claude/skills/` (Claude Code) ou `.agents/skills/` (Codex, Gemini CLI, genérico), com gravação atômica, recusa de link simbólico no caminho e registro em `obraforge.lock.json`. Sem `--for`, detecta o agente pela pasta atual. Códigos de saída: 2 para recusa de segurança (hash divergente, skill retirada, link simbólico).
