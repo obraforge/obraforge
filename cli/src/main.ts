@@ -17,7 +17,7 @@ Comandos:
   search <termo>                      Procura em nome, descrição e área.
   add <skill...> [--for <ferramenta>] Confere o hash e instala a skill na pasta do agente.
       --for     ${TOOLS.join(', ')} (sem --for, detecta pela pasta atual)
-      --yes     Confirma a instalação de skill depreciada.
+      --yes     Confirma sem perguntar: skill depreciada e substituição com --force.
       --force   Substitui uma cópia local diferente da do catálogo.
 
 Opções:

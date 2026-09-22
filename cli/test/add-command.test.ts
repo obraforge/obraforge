@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
@@ -373,4 +373,117 @@ test('nome malicioso vindo do próprio catálogo: o padrão do nome segura, sai 
   const result = await addCommand(options({ root: pkg.root, catalog }, cwd, { names: ['../fora'], tool: 'claude' }));
   assert.equal(result.code, EXIT_USAGE_ERROR);
   assertNothingWritten(cwd);
+});
+
+// Revisão adversarial do C1 (21/09/2026), achado A1: texto do catálogo no terminal.
+test('A1: versão com escape de terminal numa entrada do catálogo não chega ao terminal', async () => {
+  const pkg = makePackage(['skill-teste'], { version: '1.0.0\x1b[2J\x1b[31mPWNED' });
+  const cwd = tempDir('obraforge-projeto-');
+  const result = await addCommand(options(pkg, cwd, { tool: 'claude' }));
+  const all = [...result.stdout, ...result.stderr].join('\n');
+  assert.ok(!all.includes('\x1b'), all);
+});
+
+test('A1: nome sugerido vindo do catálogo é sanitizado', async () => {
+  const pkg = makePackage();
+  const skill = pkg.catalog.skills[0];
+  assert.ok(skill);
+  const catalog: Catalog = { ...pkg.catalog, skills: [{ ...skill, name: 'skill-teste\x1bc' }] };
+  const cwd = tempDir('obraforge-projeto-');
+  const result = await addCommand(options({ root: pkg.root, catalog }, cwd, { names: ['skill-testec'], tool: 'claude' }));
+  assert.ok(!result.stderr.join('\n').includes('\x1b'));
+});
+
+test('A1: área com escape no caminho da mensagem de erro é sanitizada', async () => {
+  const pkg = makePackage();
+  const skill = pkg.catalog.skills[0];
+  assert.ok(skill);
+  const area = 'x\x1b[2Jy';
+  const catalog: Catalog = { ...pkg.catalog, skills: [{ ...skill, area, path: `skills/${area}/skill-teste` }] };
+  const cwd = tempDir('obraforge-projeto-');
+  const result = await addCommand(options({ root: pkg.root, catalog }, cwd, { tool: 'claude' }));
+  assert.notEqual(result.code, EXIT_SUCCESS);
+  assert.ok(!result.stderr.join('\n').includes('\x1b'));
+});
+
+// Achado A3: --force com a cópia antiga impossível de apagar. A nova já está no lugar: é sucesso,
+// com aviso de onde ficou a antiga.
+test('A3: --force com a cópia antiga impossível de apagar: sucesso, com aviso da sobra', async () => {
+  const pkg = makePackage();
+  const cwd = tempDir('obraforge-projeto-');
+  await addCommand(options(pkg, cwd, { tool: 'claude' }));
+  const skillsDir = join(cwd, '.claude', 'skills');
+  const dir = join(skillsDir, 'skill-teste');
+  writeFileSync(join(dir, 'SKILL.md'), 'minha edição\n');
+  const locked = join(dir, 'minha-pasta');
+  mkdirSync(join(locked, 'dentro'), { recursive: true });
+  writeFileSync(join(locked, 'dentro', 'nota.md'), 'x\n');
+  chmodSync(locked, 0o000);
+  // Sonda: onde chmod 000 não trava a pasta (Windows, root), o cenário não se monta, e o teste
+  // confere o caminho normal: sucesso sem sobra.
+  const constructible = (() => {
+    try {
+      readdirSync(locked);
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  try {
+    const result = await addCommand(options(pkg, cwd, { tool: 'claude', force: true }));
+    assert.equal(result.code, EXIT_SUCCESS, result.stderr.join('\n'));
+    assert.equal(hashSkillDir(dir).sha256, pkg.catalog.skills[0]?.sha256);
+    if (constructible) {
+      assert.match(result.stdout.join('\n'), /cópia anterior ficou em/);
+    } else {
+      assert.deepEqual(readdirSync(skillsDir), ['skill-teste']);
+    }
+  } finally {
+    for (const name of readdirSync(skillsDir)) {
+      try {
+        chmodSync(join(skillsDir, name, 'minha-pasta'), 0o755);
+      } catch {
+        // a pasta travada só existe na cópia antiga
+      }
+    }
+  }
+});
+
+// Achado A5: registro local que é pasta é erro de ambiente (3), não recusa de segurança.
+test('A5: registro local que é pasta sai 3', async () => {
+  const pkg = makePackage();
+  const cwd = tempDir('obraforge-projeto-');
+  mkdirSync(join(cwd, LOCK_FILE));
+  const result = await addCommand(options(pkg, cwd, { tool: 'claude' }));
+  assert.equal(result.code, EXIT_ENVIRONMENT_ERROR);
+});
+
+test('A5: falha ao gravar o registro entra no resumo como erro', async () => {
+  const pkg = makePackage(['skill-um', 'skill-dois']);
+  const cwd = tempDir('obraforge-projeto-');
+  mkdirSync(join(cwd, '.claude', 'skills'), { recursive: true });
+  chmodSync(cwd, 0o555);
+  // Sonda: onde chmod 555 não barra escrita (Windows, root), o cenário não se monta, e o teste
+  // confere o caminho normal.
+  const constructible = (() => {
+    try {
+      writeFileSync(join(cwd, 'sonda'), 'x');
+      rmSync(join(cwd, 'sonda'));
+      return false;
+    } catch {
+      return true;
+    }
+  })();
+  try {
+    const result = await addCommand(options(pkg, cwd, { names: ['skill-um', 'skill-dois'], tool: 'claude' }));
+    if (constructible) {
+      assert.equal(result.code, EXIT_ENVIRONMENT_ERROR);
+      assert.match(result.stdout.join('\n'), /Resumo: 0 de 2 .*2 com erro/);
+    } else {
+      assert.equal(result.code, EXIT_SUCCESS);
+      assert.match(result.stdout.join('\n'), /Resumo: 2 de 2/);
+    }
+  } finally {
+    chmodSync(cwd, 0o755);
+  }
 });

@@ -89,11 +89,11 @@ export async function addCommand(options: AddOptions): Promise<AddResult> {
       lock = [...lock.filter((entry) => entry.path !== result.entry?.path), result.entry];
       try {
         writeLock(lockPath, lock);
+        installed += result.code === EXIT_SUCCESS ? 1 : 0;
       } catch (error) {
-        err.push(`Erro de ambiente: não foi possível gravar ${LOCK_FILE} (${error instanceof Error ? error.message : String(error)}).`);
+        err.push(`Erro de ambiente: não foi possível gravar ${LOCK_FILE} (${sanitize(error instanceof Error ? error.message : String(error))}).`);
         code = worst(code, EXIT_ENVIRONMENT_ERROR);
       }
-      installed += result.code === EXIT_SUCCESS ? 1 : 0;
     }
   }
   if (options.names.length > 1) {
@@ -152,11 +152,12 @@ async function installOne(rawName: string, tool: Tool, options: AddOptions, lock
   const skill = options.catalog.skills.find((item) => item.name === rawName);
   if (skill === undefined) {
     const suggestion = closest(rawName, options.catalog.skills.map((item) => item.name));
-    const hint = suggestion === undefined ? ' Veja as disponíveis com "obraforge list".' : ` Você quis dizer "${suggestion}"?`;
+    const hint = suggestion === undefined ? ' Veja as disponíveis com "obraforge list".' : ` Você quis dizer "${sanitize(suggestion)}"?`;
     return done(EXIT_USAGE_ERROR, [], [`Skill não encontrada no catálogo desta versão: "${name}".${hint}`]);
   }
 
   const stdout: string[] = [];
+  const version = sanitize(skill.version);
   if (skill.state === 'depreciada') {
     stdout.push(`Aviso: ${name} está depreciada. Motivo: ${sanitize(skill.deprecationReason ?? '')}`);
     if (!options.yes) {
@@ -192,13 +193,13 @@ async function installOne(rawName: string, tool: Tool, options: AddOptions, lock
   const existing = destinationState(dest, skill.sha256);
   if (existing === 'same') {
     const registered = lock.some((item) => item.path === relDest && item.sha256 === skill.sha256);
-    stdout.push(`${name} ${skill.version} já está instalada em ${relDest}/, sem diferença. Nada a fazer${registered ? '' : '; registrada no ' + LOCK_FILE}.`);
+    stdout.push(`${name} ${version} já está instalada em ${relDest}/, sem diferença. Nada a fazer${registered ? '' : '; registrada no ' + LOCK_FILE}.`);
     return done(EXIT_SUCCESS, stdout, [], entry);
   }
   if (existing === 'different') {
     if (!options.force) {
       return done(EXIT_USAGE_ERROR, stdout, [
-        `${relDest}/ já existe e difere da versão ${skill.version} do catálogo (modificada localmente ou outra versão). Nada foi alterado. Para substituir, use --force.`,
+        `${relDest}/ já existe e difere da versão ${version} do catálogo (modificada localmente ou outra versão). Nada foi alterado. Para substituir, use --force.`,
       ]);
     }
     if (options.prompter !== undefined && !options.yes) {
@@ -209,16 +210,20 @@ async function installOne(rawName: string, tool: Tool, options: AddOptions, lock
     }
   }
 
+  let leftover: string | undefined;
   try {
-    copyAtomically(source, dest, skill);
+    leftover = copyAtomically(source, dest, skill);
   } catch (error) {
     if (error instanceof CopyRefusal) {
       return done(EXIT_SECURITY_REFUSAL, stdout, [`${error.message} ${SECURITY_HINT}`]);
     }
-    const cause = error instanceof Error ? error.message : String(error);
+    const cause = sanitize(error instanceof Error ? error.message : String(error));
     return done(EXIT_ENVIRONMENT_ERROR, stdout, [`Erro de ambiente: não foi possível gravar em ${relDest}/ (${cause}). Rode o comando na pasta do projeto, com permissão de escrita.`]);
   }
-  stdout.push(`${name} ${skill.version} instalada em ${relDest}/ (${TOOL_LABEL[tool]}).`, nextSteps(tool, skill.name));
+  stdout.push(`${name} ${version} instalada em ${relDest}/ (${TOOL_LABEL[tool]}).`, nextSteps(tool, skill.name));
+  if (leftover !== undefined) {
+    stdout.push(`Aviso: a cópia anterior ficou em ${sanitize(leftover)} e não pôde ser apagada; apague à mão.`);
+  }
   return done(EXIT_SUCCESS, stdout, [], entry);
 }
 
@@ -235,7 +240,7 @@ function checkSource(source: string, skill: CatalogSkill): Refusal | undefined {
     if (error instanceof SkillTreeError) {
       return { code: EXIT_SECURITY_REFUSAL, message: `A pasta de ${skill.name} no pacote tem link simbólico ou arquivo especial. ${SECURITY_HINT}` };
     }
-    return { code: EXIT_ENVIRONMENT_ERROR, message: `Erro de ambiente: a pasta de ${skill.name} não está no pacote instalado (${source}).` };
+    return { code: EXIT_ENVIRONMENT_ERROR, message: `Erro de ambiente: a pasta de ${sanitize(skill.name)} não está no pacote instalado (${sanitize(source)}).` };
   }
   if (sha256 !== skill.sha256) {
     return { code: EXIT_SECURITY_REFUSAL, message: `O hash de ${skill.name} no pacote não confere com o catálogo. ${SECURITY_HINT}` };
@@ -283,7 +288,7 @@ class CopyRefusal extends Error {}
 
 // Copia para uma pasta temporária irmã do destino, confere o hash da cópia e só então a coloca no
 // lugar. Só arquivo regular, sem bit de execução. Falha no meio não deixa pasta parcial.
-function copyAtomically(source: string, dest: string, skill: CatalogSkill): void {
+function copyAtomically(source: string, dest: string, skill: CatalogSkill): string | undefined {
   const parent = dirname(dest);
   mkdirSync(parent, { recursive: true });
   const temp = mkdtempSync(join(parent, `.${skill.name}.obraforge-`));
@@ -298,14 +303,16 @@ function copyAtomically(source: string, dest: string, skill: CatalogSkill): void
     if (hashSkillDir(temp).sha256 !== skill.sha256) {
       throw new CopyRefusal(`A cópia de ${skill.name} não confere com o hash do catálogo.`);
     }
-    replace(temp, dest);
+    return replace(temp, dest);
   } catch (error) {
     rmSync(temp, { recursive: true, force: true });
     throw error;
   }
 }
 
-function replace(temp: string, dest: string): void {
+// Devolve o caminho da cópia anterior quando ela não pôde ser apagada depois da troca: a cópia nova
+// já está no lugar, e isso é sucesso com aviso, não falha.
+function replace(temp: string, dest: string): string | undefined {
   let old: string | undefined;
   try {
     lstatSync(dest);
@@ -325,8 +332,13 @@ function replace(temp: string, dest: string): void {
     throw error;
   }
   if (old !== undefined) {
-    rmSync(old, { recursive: true, force: true });
+    try {
+      rmSync(old, { recursive: true, force: true });
+    } catch {
+      return old;
+    }
   }
+  return undefined;
 }
 
 class LockError extends Error {
@@ -347,8 +359,11 @@ function readLock(lockPath: string): LockEntry[] {
   } catch {
     return [];
   }
-  if (stats.isSymbolicLink() || !stats.isFile()) {
-    throw new LockError(EXIT_SECURITY_REFUSAL, `${LOCK_FILE} não é arquivo regular (link simbólico?). Nada foi gravado.`);
+  if (stats.isSymbolicLink()) {
+    throw new LockError(EXIT_SECURITY_REFUSAL, `${LOCK_FILE} é link simbólico. Nada foi gravado.`);
+  }
+  if (!stats.isFile()) {
+    throw new LockError(EXIT_ENVIRONMENT_ERROR, `Erro de ambiente: ${LOCK_FILE} existe e não é arquivo. Nada foi instalado.`);
   }
   let data: unknown;
   try {

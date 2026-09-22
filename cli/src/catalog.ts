@@ -34,6 +34,10 @@ function describe(url: URL): string {
 }
 
 const SHA256 = /^[0-9a-f]{64}$/;
+// Mesmos padrões do validador (NOME, METADATA): o texto de nome, área e versão vai para o terminal
+// e para caminho de arquivo, então fora do padrão invalida o catálogo inteiro.
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const VERSION = /^[0-9A-Za-z.+-]{1,256}$/;
 
 export function readCatalog(catalogJson: URL = CATALOG_JSON): Catalog {
   let raw: string;
@@ -83,6 +87,9 @@ function isValidSkill(value: unknown): value is CatalogSkill {
   }
   const strings = ['name', 'area', 'version', 'description', 'path', 'sha256'].every((key) => typeof value[key] === 'string');
   if (!strings || typeof value['phase'] !== 'number' || !SHA256.test(value['sha256'] as string)) {
+    return false;
+  }
+  if (!SLUG.test(value['name'] as string) || !SLUG.test(value['area'] as string) || !VERSION.test(value['version'] as string)) {
     return false;
   }
   if (value['state'] === 'publicada') {

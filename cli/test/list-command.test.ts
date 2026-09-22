@@ -179,3 +179,22 @@ test('catálogo sem "retired" ou com estado desconhecido sai 3 (fail-closed)', (
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Achado A1 da revisão adversarial do C1: o catálogo é validado na leitura. Nome, área e versão
+// com caractere fora do padrão invalidam o catálogo inteiro (fail-closed).
+test('A1: catálogo com escape no nome, na área ou na versão sai 3', () => {
+  const { dir, file } = tempCatalogPath();
+  try {
+    for (const [key, value] of [['name', 'skill\x1bc'], ['area', 'x\x1b[2Jy'], ['version', '1.0.0\x1b[31m']] as const) {
+      writeCatalog(file);
+      const catalog = JSON.parse(readFileSync(file, 'utf8')) as { skills: Array<Record<string, unknown>> };
+      const first = catalog.skills[0];
+      assert.ok(first);
+      first[key] = value;
+      writeFileSync(file, JSON.stringify(catalog));
+      assert.equal(listCommand(pathToFileURL(file)).code, EXIT_ENVIRONMENT_ERROR, key);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
