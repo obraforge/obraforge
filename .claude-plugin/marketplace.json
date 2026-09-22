@@ -1,0 +1,45 @@
+{
+  "name": "obraforge",
+  "owner": {
+    "name": "obraforge"
+  },
+  "description": "Catálogo aberto de Agent Skills para arquitetura, engenharia e construção no Brasil. Cada plugin é uma skill, instalada da release do obraforge.",
+  "plugins": [
+    {
+      "name": "validar-planilha-orcamentaria",
+      "description": "Confere a estrutura de uma planilha orçamentária de obra — hierarquia da EAP, itens sem unidade ou quantidade, unidade incoerente com o serviço, totais que não fecham, ausência de BDI e de encargos sociais — e aponta cada problema com o item de origem. Use quando o usuário pedir para revisar, conferir ou validar um orçamento ou uma planilha de custos de obra.",
+      "version": "1.0.0",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/obraforge/obraforge.git",
+        "path": "skills/orcamento/validar-planilha-orcamentaria",
+        "ref": "v0.1.0"
+      },
+      "strict": false
+    },
+    {
+      "name": "checklist-edital",
+      "description": "Extrai de um edital de licitação de obra ou serviço de engenharia os itens obrigatórios de habilitação (jurídica, técnica, fiscal, social e trabalhista, econômico-financeira), as declarações e as exigências da proposta, conforme a Lei nº 14.133/2021, e devolve um checklist com a cláusula de origem de cada item, sinalizando exigência atípica. Use quando o usuário pedir o checklist, a lista de documentos ou os requisitos para participar de uma licitação a partir do edital.",
+      "version": "1.0.0",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/obraforge/obraforge.git",
+        "path": "skills/licitacao/checklist-edital",
+        "ref": "v0.1.0"
+      },
+      "strict": false
+    },
+    {
+      "name": "revisar-conformidade-documental",
+      "description": "Confere a lista de documentos de uma obra contra um checklist genérico (PGR, PCMSO, ART ou RRT de execução, alvará de construção, memorial descritivo e projeto aprovado), com a NR ou a lei de cada um, e aponta o que falta e o que está vencido numa data de referência. Use quando o usuário pedir para revisar, auditar ou conferir a documentação legal ou de segurança de uma obra.",
+      "version": "1.0.0",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/obraforge/obraforge.git",
+        "path": "skills/sst/revisar-conformidade-documental",
+        "ref": "v0.1.0"
+      },
+      "strict": false
+    }
+  ]
+}

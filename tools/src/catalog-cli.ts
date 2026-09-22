@@ -1,11 +1,14 @@
 // Uso: node catalog-cli.js [--verificar] [raiz-das-skills] [saida] [pacote-cli]
 // Padrões: raiz-das-skills=skills, saida=catalog.json, pacote-cli=cli/package.json.
-// Sem --verificar: gera e escreve o catálogo em `saida`.
-// Com --verificar: regenera em memória e compara byte a byte com `saida`, sem escrever nada.
+// Sem --verificar: gera e escreve o catálogo em `saida` e o manifesto do marketplace de plugins em
+// `.claude-plugin/marketplace.json`, na mesma pasta de `saida` (item P1 do plano da fase 1).
+// Com --verificar: regenera os dois em memória e compara byte a byte, sem escrever nada.
 // Código de saída: 0 sucesso; 1 catálogo desatualizado/ausente (--verificar) ou skill que não
 // pôde ser catalogada; 2 uso errado ou erro inesperado.
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { buildCatalog, CatalogBuildError, diffLines, formatCatalogJson } from './catalog.js';
+import { buildMarketplace, formatMarketplaceJson } from './marketplace.js';
 import { sanitize } from './report.js';
 
 interface Args {
@@ -57,27 +60,37 @@ async function main(argv: readonly string[]): Promise<number> {
     }
     throw error;
   }
-  const json = formatCatalogJson(catalog);
+  const outputs = [
+    { path: args.saida, json: formatCatalogJson(catalog) },
+    { path: join(dirname(args.saida), '.claude-plugin', 'marketplace.json'), json: formatMarketplaceJson(buildMarketplace(catalog)) },
+  ];
 
   if (args.verificar) {
-    const existing = await readExisting(args.saida);
-    if (existing === json) {
-      console.log(`Catálogo: ${args.saida} está atualizado (${catalog.skills.length} skill(s)).`);
-      return 0;
+    let fresh = true;
+    for (const output of outputs) {
+      const existing = await readExisting(output.path);
+      if (existing === output.json) {
+        console.log(`Catálogo: ${output.path} está atualizado (${catalog.skills.length} skill(s)).`);
+        continue;
+      }
+      fresh = false;
+      if (existing === null) {
+        console.error(`Catálogo: ${output.path} não existe. Rode \`npm run catalogo\` para gerá-lo.`);
+      } else {
+        console.error(`Catálogo: ${output.path} desatualizado. Rode \`npm run catalogo\` para regenerá-lo.`);
+      }
+      for (const line of diffLines(existing, output.json)) {
+        console.error(sanitize(line));
+      }
     }
-    if (existing === null) {
-      console.error(`Catálogo: ${args.saida} não existe. Rode \`npm run catalogo\` para gerá-lo.`);
-    } else {
-      console.error(`Catálogo: ${args.saida} desatualizado. Rode \`npm run catalogo\` para regenerá-lo.`);
-    }
-    for (const line of diffLines(existing, json)) {
-      console.error(sanitize(line));
-    }
-    return 1;
+    return fresh ? 0 : 1;
   }
 
-  await writeFile(args.saida, json);
-  console.log(`Catálogo: ${args.saida} gerado com ${catalog.skills.length} skill(s).`);
+  for (const output of outputs) {
+    await mkdir(dirname(output.path), { recursive: true });
+    await writeFile(output.path, output.json);
+    console.log(`Catálogo: ${output.path} gerado com ${catalog.skills.length} skill(s).`);
+  }
   return 0;
 }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -69,4 +69,31 @@ test('--verificar não escreve nada em disco: o arquivo desatualizado continua i
   run('--verificar', skillsRoot, saida, pkg);
   const afterVerify = await readFile(saida, 'utf8');
   assert.equal(afterVerify, tampered);
+});
+
+test('gera também o .claude-plugin/marketplace.json ao lado do catalog.json', async () => {
+  const { skillsRoot, saida, pkg } = await setup();
+  assert.equal(run(skillsRoot, saida, pkg).status, 0);
+  const marketplace = JSON.parse(await readFile(join(saida, '..', '.claude-plugin', 'marketplace.json'), 'utf8')) as { name: string; plugins: [] };
+  assert.equal(marketplace.name, 'obraforge');
+  assert.deepEqual(marketplace.plugins, []);
+});
+
+test('--verificar sai 1 com diff quando só o marketplace.json está desatualizado', async () => {
+  const { skillsRoot, saida, pkg } = await setup();
+  assert.equal(run(skillsRoot, saida, pkg).status, 0);
+  const path = join(saida, '..', '.claude-plugin', 'marketplace.json');
+  await writeFile(path, (await readFile(path, 'utf8')).replace('"obraforge"', '"outro"'));
+  const result = run('--verificar', skillsRoot, saida, pkg);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /marketplace\.json desatualizado/);
+});
+
+test('--verificar sai 1 quando o marketplace.json não existe', async () => {
+  const { skillsRoot, saida, pkg } = await setup();
+  assert.equal(run(skillsRoot, saida, pkg).status, 0);
+  await rm(join(saida, '..', '.claude-plugin'), { recursive: true });
+  const result = run('--verificar', skillsRoot, saida, pkg);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /marketplace\.json não existe/);
 });
