@@ -39,6 +39,8 @@ export interface AddResult {
   readonly code: number;
   readonly stdout: string[];
   readonly stderr: string[];
+  // Resumo de várias skills: impresso por último, depois das causas.
+  readonly summary?: string;
 }
 
 interface LockEntry {
@@ -98,7 +100,8 @@ export async function addCommand(options: AddOptions): Promise<AddResult> {
   }
   if (options.names.length > 1) {
     const failed = options.names.length - installed;
-    out.push(`Resumo: ${installed} de ${options.names.length} skill(s) instalada(s) ou já em dia${failed > 0 ? `, ${failed} com erro` : ''}.`);
+    const summary = `Resumo: ${installed} de ${options.names.length} skill(s) instalada(s) ou já em dia${failed > 0 ? `, ${failed} com erro` : ''}.`;
+    return { code, stdout: out, stderr: err, summary };
   }
   return { code, stdout: out, stderr: err };
 }
@@ -144,7 +147,11 @@ async function installOne(rawName: string, tool: Tool, options: AddOptions, lock
     entry === undefined ? { code, stdout, stderr } : { code, stdout, stderr, entry };
 
   if (rawName.length > NAME_MAX || !NAME_PATTERN.test(rawName)) {
-    return done(EXIT_USAGE_ERROR, [], [`Nome de skill inválido: "${name}". Use o nome exato mostrado por "obraforge list".`]);
+    // Erro de digitação comum (caixa, underscore, espaço, hífen sobrando) ainda recebe sugestão.
+    const guess = rawName.toLowerCase().replace(/[_\s]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '');
+    const suggestion = closest(guess, options.catalog.skills.map((item) => item.name));
+    const hint = suggestion === undefined ? ' Use o nome exato mostrado por "obraforge list".' : ` Você quis dizer "${sanitize(suggestion)}"?`;
+    return done(EXIT_USAGE_ERROR, [], [`Nome de skill inválido: "${name}".${hint}`]);
   }
   if (options.catalog.retired.includes(rawName)) {
     return done(EXIT_SECURITY_REFUSAL, [], [`${name} foi retirada do catálogo e não pode ser instalada. O motivo está no CHANGELOG do obraforge.`]);
@@ -159,9 +166,12 @@ async function installOne(rawName: string, tool: Tool, options: AddOptions, lock
   const stdout: string[] = [];
   const version = sanitize(skill.version);
   if (skill.state === 'depreciada') {
-    stdout.push(`Aviso: ${name} está depreciada. Motivo: ${sanitize(skill.deprecationReason ?? '')}`);
+    const warning = `Aviso: ${name} está depreciada. Motivo: ${sanitize(skill.deprecationReason ?? '')}`;
+    stdout.push(warning);
     if (!options.yes) {
-      const confirmed = options.prompter !== undefined && (await options.prompter.confirm(`Instalar ${name} mesmo assim?`));
+      // A saída só é impressa no fim do comando: a pergunta leva o aviso junto, para o usuário
+      // decidir sabendo o motivo.
+      const confirmed = options.prompter !== undefined && (await options.prompter.confirm(`${warning}\nInstalar ${name} mesmo assim?`));
       if (!confirmed) {
         const why = options.prompter === undefined ? 'Fora de um terminal interativo, confirme com --yes.' : 'Instalação cancelada.';
         return done(EXIT_USAGE_ERROR, stdout, [`${name} não foi instalada: skill depreciada. ${why}`]);

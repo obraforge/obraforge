@@ -17,7 +17,16 @@ export function safeHref(href: string, skillPath: string): string | undefined {
   if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith('/') || value.startsWith('\\') || value === '') {
     return undefined;
   }
-  return `${REPO_URL}/blob/main/${skillPath}/${value}`;
+  // Resolve como o navegador resolveria (inclusive ".." e "%2e%2e") e só aceita se o destino
+  // continuar dentro da pasta da skill no GitHub.
+  const base = `${REPO_URL}/blob/main/${skillPath}/`;
+  let resolved: URL;
+  try {
+    resolved = new URL(value, base);
+  } catch {
+    return undefined;
+  }
+  return resolved.href.startsWith(base) ? resolved.href : undefined;
 }
 
 export function renderMarkdown(source: string, skillPath: string): string {

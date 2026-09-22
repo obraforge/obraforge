@@ -340,7 +340,7 @@ test('várias skills: uma falha não desfaz as outras, e o código final é o pi
   assert.ok(existsSync(join(cwd, '.claude', 'skills', 'skill-um')));
   assert.ok(existsSync(join(cwd, '.claude', 'skills', 'skill-dois')));
   assert.equal(readLock(cwd).length, 2);
-  assert.match(result.stdout.join('\n'), /Resumo: 2 de 3/);
+  assert.match(result.summary ?? '', /Resumo: 2 de 3/);
 });
 
 test('recusa de segurança pesa mais que erro de uso no código final', async () => {
@@ -478,12 +478,52 @@ test('A5: falha ao gravar o registro entra no resumo como erro', async () => {
     const result = await addCommand(options(pkg, cwd, { names: ['skill-um', 'skill-dois'], tool: 'claude' }));
     if (constructible) {
       assert.equal(result.code, EXIT_ENVIRONMENT_ERROR);
-      assert.match(result.stdout.join('\n'), /Resumo: 0 de 2 .*2 com erro/);
+      assert.match(result.summary ?? '', /Resumo: 0 de 2 .*2 com erro/);
     } else {
       assert.equal(result.code, EXIT_SUCCESS);
-      assert.match(result.stdout.join('\n'), /Resumo: 2 de 2/);
+      assert.match(result.summary ?? '', /Resumo: 2 de 2/);
     }
   } finally {
     chmodSync(cwd, 0o755);
   }
+});
+
+// Gate da fase 1 (G1), lente de correção, achado 1: no terminal, a pergunta de skill depreciada
+// precisa trazer o aviso e o motivo, porque a saída do comando só é impressa no fim.
+test('G1: no terminal, a pergunta de skill depreciada traz o estado e o motivo', async () => {
+  const pkg = makePackage(['skill-teste'], { state: 'depreciada', deprecationReason: 'Norma revogada.' });
+  const cwd = tempDir('obraforge-projeto-');
+  const asked: string[] = [];
+  const prompter: Prompter = {
+    confirm: async (question) => {
+      asked.push(question);
+      return false;
+    },
+    choose: async () => undefined,
+  };
+  await addCommand(options(pkg, cwd, { tool: 'claude', prompter }));
+  assert.equal(asked.length, 1);
+  assert.match(asked[0] ?? '', /depreciada/);
+  assert.match(asked[0] ?? '', /Norma revogada\./);
+});
+
+// Achado 3: nome fora do padrão por caixa, underscore ou hífen sobrando também recebe sugestão.
+test('G1: nome fora do padrão ainda recebe sugestão por proximidade', async () => {
+  const pkg = makePackage();
+  const cwd = tempDir('obraforge-projeto-');
+  for (const name of ['Skill-Teste', 'skill_teste', 'skill-teste-']) {
+    const result = await addCommand(options(pkg, cwd, { names: [name], tool: 'claude' }));
+    assert.equal(result.code, EXIT_USAGE_ERROR, name);
+    assert.match(result.stderr.join('\n'), /Você quis dizer "skill-teste"\?/, name);
+  }
+  assertNothingWritten(cwd);
+});
+
+// Achado 4: o resumo vem por último, depois das causas.
+test('G1: o resumo de várias skills sai à parte, para ser impresso por último', async () => {
+  const pkg = makePackage(['skill-um']);
+  const cwd = tempDir('obraforge-projeto-');
+  const result = await addCommand(options(pkg, cwd, { names: ['skill-um', 'nao-existe'], tool: 'claude' }));
+  assert.match(result.summary ?? '', /Resumo: 1 de 2/);
+  assert.ok(!result.stdout.join('\n').includes('Resumo:'));
 });

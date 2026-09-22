@@ -33,18 +33,16 @@ test('um plugin por skill, fixado na tag da versão do catálogo, sem plugin.jso
   assert.deepEqual(marketplace.plugins[0], {
     name: 'skill-um',
     description: 'Skill skill-um.',
-    version: '1.2.0',
+    version: `1.2.0+${'a'.repeat(12)}`,
     source: { source: 'git-subdir', url: 'https://github.com/obraforge/obraforge.git', path: 'skills/contexto/skill-um', ref: 'v0.3.0' },
     strict: false,
   });
 });
 
-test('skill depreciada entra com o motivo na descrição; retirada não entra', () => {
+// G1, achado 6: o gerador só percorre catalog.skills, então a skill retirada fica fora por
+// construção (a pasta dela sai de skills/); não há caminho a testar além deste.
+test('skill depreciada entra com o motivo na descrição', () => {
   const marketplace = buildMarketplace(catalog);
-  assert.deepEqual(
-    marketplace.plugins.map((plugin) => plugin.name),
-    ['skill-um', 'skill-dois'],
-  );
   assert.equal(marketplace.plugins[1]?.description, 'Depreciada: Norma revogada. Skill skill-dois.');
 });
 
@@ -60,4 +58,12 @@ test('formatMarketplaceJson é determinístico e termina com um "\\n"', () => {
   const first = formatMarketplaceJson(buildMarketplace(catalog));
   assert.equal(first, formatMarketplaceJson(buildMarketplace(catalog)));
   assert.ok(first.endsWith('}\n') && !first.endsWith('\n\n'));
+});
+
+// G1, lente de segurança, achado 1: o Claude Code só atualiza o plugin quando a string de versão
+// muda. A versão leva o começo do hash, então conteúdo novo sempre vira versão nova.
+test('G1: a versão do plugin muda quando o conteúdo muda, mesmo sem subir a versão da skill', () => {
+  const before = buildMarketplace(catalog).plugins[0]?.version;
+  const changed: Catalog = { ...catalog, skills: [{ ...(catalog.skills[0] as CatalogSkillEntry), sha256: 'b'.repeat(64) }] };
+  assert.notEqual(buildMarketplace(changed).plugins[0]?.version, before);
 });

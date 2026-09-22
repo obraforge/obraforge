@@ -4,7 +4,7 @@ description: Extrai de um edital de licitação de obra ou serviço de engenhari
 metadata:
   obraforge-area: "licitacao"
   obraforge-fase: "1"
-  obraforge-versao: "1.0.0"
+  obraforge-versao: "1.1.0"
 ---
 
 # Checklist de edital
@@ -41,12 +41,16 @@ edital pede; ela não prepara os documentos nem dá parecer jurídico.
    - atestado com quantidade mínima acima de 50% da parcela de maior relevância, ou com limitação de
      tempo ou de local (art. 67, § 2º); parcela de maior relevância com valor abaixo de 4% do total
      estimado (art. 67, § 1º);
+   - profissional que precisa estar vinculado à licitante já na abertura ou na entrega dos
+     documentos: o art. 67, I pede o profissional "para fins de contratação";
    - faturamento mínimo, índice de rentabilidade ou de lucratividade (art. 69, § 2º); índice ou
      valor não usual (art. 69, § 5º); capital mínimo ou patrimônio líquido mínimo acima de 10% do
      valor estimado (art. 69, § 4º);
    - garantia de proposta acima de 1% do valor estimado (art. 58, § 1º).
 
-   Uma exigência dentro desses limites não é atípica: não a sinalize.
+   Uma exigência dentro desses limites não é atípica: não a sinalize. Se o edital exige quantidade
+   mínima em atestado sem dizer a que parcela de maior relevância ela se refere, isso não é atípico
+   por si só: registre em "Pontos a confirmar", porque os limites do art. 67 se medem pela parcela.
 
 ## Como responder
 

@@ -18,8 +18,9 @@ A skill precisa apontar os quatro problemas abaixo. Conta o conteúdo, não a re
 
 A skill **não** deve apontar como problema:
 
-- o **PCMSO** de 05/02/2026, sem validade própria na lista (pode dizer que o relatório analítico
-  anual deve ser acompanhado, sem marcar vencido);
+- o **PCMSO** de 05/02/2026. A lista não traz a data do relatório analítico anual, então a resposta
+  certa é **a confirmar**, e ele pode aparecer nas pendências como a confirmar. Marcar como vencido
+  ou faltante é erro;
 - o **memorial descritivo** rev. 2, presente;
 - a **ART de projeto estrutural** em si, que é um documento válido; o problema é a falta da de
   execução;

@@ -288,7 +288,7 @@ test('rodar.sh seguido de U+00A0 é acusado em ESTRUTURA (e em SCRIPTS pela exte
     findings.map((finding) => [finding.code, finding.file, finding.message]),
     [
       ['ESTRUTURA', 'contexto/exemplo-valido/assets/rodar.sh\u00A0', INVISIBLE_NAME_MESSAGE],
-      ['SCRIPTS', 'contexto/exemplo-valido/assets/rodar.sh\u00A0', 'arquivo de código (.sh) não é permitido antes da fase 3 (fase atual do projeto: 0)'],
+      ['SCRIPTS', 'contexto/exemplo-valido/assets/rodar.sh\u00A0', 'arquivo de código (.sh) não é permitido antes da fase 3 (fase atual do projeto: 1)'],
     ],
   );
 });
@@ -795,6 +795,10 @@ const frontmatterFieldCases: Array<[string, RuleCode[], Mutation]> = [
   ['depreciada com motivo vazio', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "  "\n`)],
   ['motivo sem estado', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-motivo: "Norma revogada."\n`)],
   ['motivo com 500 caracteres', [], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "${'á'.repeat(500)}"\n`)],
+  // G1, achado 2: motivo feito só de caractere invisível é motivo vazio.
+  ['motivo só com espaço de largura zero', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "\u200B"\n`)],
+  ['motivo só com word joiner', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "\u2060\u2060"\n`)],
+  ['motivo só com hífen invisível', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "\u00AD"\n`)],
   ['motivo com 501 caracteres', ['METADATA'], editSkill(METADATA_BLOCK, `${METADATA_BLOCK}  obraforge-estado: "depreciada"\n  obraforge-motivo: "${'á'.repeat(501)}"\n`)],
 ];
 

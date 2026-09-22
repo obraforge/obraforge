@@ -1,7 +1,7 @@
 // Constantes versionadas do validador. Mudar qualquer uma delas é decisão de PR, com revisão.
 
 // Fase atual do projeto (Roadmap). A regra SCRIPTS recusa `scripts/` enquanto for menor que 3.
-export const PROJECT_PHASE: number = 0;
+export const PROJECT_PHASE: number = 1;
 
 // Extensões de código (em minúsculas) que a regra SCRIPTS recusa em qualquer pasta da skill
 // enquanto a fase for menor que 3: nenhum código em skill antes da fase 3.

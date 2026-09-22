@@ -4,6 +4,16 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ## [Não lançado]
 
+Correções do gate da fase 1 (G1), com as três lentes adversariais registradas em `docs/fase-1.md`.
+
+### Alteradas
+
+- Skill `checklist-edital` 1.1.0: sinaliza como atípica a exigência de profissional vinculado à licitante antes da contratação (Lei nº 14.133/2021, art. 67, I), e trata quantidade mínima de atestado sem parcela de maior relevância indicada como ponto a confirmar. O `esperado.md` deixa de justificar os 210 m² como "50% da obra".
+- Skill `revisar-conformidade-documental` 1.0.1: referências da NR-7 e da NR-18 corrigidas (redação e última alteração conferidas no portal do MTE); exceção da NR-18 citada por inteiro ("profissional qualificado em segurança do trabalho"); ART e RRT sem restringir a ART à engenharia; o `esperado.md` deixa claro que o PCMSO sem data do relatório analítico é "a confirmar".
+- Skill `validar-planilha-orcamentaria` 1.0.1: o subtotal é a soma dos itens listados sob o grupo, inclusive o item mal numerado, que é erro de hierarquia e não de soma.
+- CLI: a pergunta de skill depreciada traz o motivo, e o modo interativo marca a skill depreciada; nome fora do padrão (caixa, underscore) também recebe sugestão; `search` com termo vazio é erro de uso; o resumo de várias skills sai por último.
+- No repositório, fora do pacote: o validador recusa `obraforge-motivo` feito só de caractere invisível; o marketplace de plugins leva o começo do hash na versão do plugin, para conteúdo novo sempre chegar a quem instalou pelo plugin; o site descarta link relativo que sai da pasta da skill.
+
 ### Adicionadas
 
 - No repositório, fora do pacote: `.claude-plugin/marketplace.json`, o marketplace de plugins do Claude Code gerado do catálogo, com um plugin por skill fixado na tag da release (`/plugin marketplace add obraforge/obraforge`).

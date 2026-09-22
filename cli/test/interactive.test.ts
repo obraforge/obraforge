@@ -70,3 +70,13 @@ test('não confirmar: sai 1 e não grava nada', async () => {
   assert.equal(result.code, EXIT_USAGE_ERROR);
   assert.deepEqual(readdirSync(cwd), []);
 });
+
+test('G1: a escolha de skill marca a depreciada', async () => {
+  const pkg = makePackage();
+  const skill = pkg.catalog.skills[0];
+  assert.ok(skill);
+  const catalog: Catalog = { ...pkg.catalog, skills: [{ ...skill, state: 'depreciada', deprecationReason: 'Norma revogada.' }] };
+  const io = scripted(['1', '9']);
+  await interactive(io, catalog, temp(), pkg.root);
+  assert.ok(io.written.some((line) => /skill-teste .*depreciada/.test(line)), io.written.join('\n'));
+});

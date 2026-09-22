@@ -4,7 +4,7 @@ description: Confere a lista de documentos de uma obra contra um checklist gené
 metadata:
   obraforge-area: "sst"
   obraforge-fase: "1"
-  obraforge-versao: "1.0.0"
+  obraforge-versao: "1.0.1"
 ---
 
 # Revisar conformidade documental
@@ -35,7 +35,7 @@ confirmar** (quando a lista não traz informação suficiente).
    ocupacionais constitua um PGR, com no mínimo o inventário de riscos e o plano de ação. A NR-18
    torna o PGR obrigatório nos canteiros de obras e exige que ele seja elaborado por profissional
    legalmente habilitado em segurança do trabalho; em canteiro com até 7 m de altura e no máximo 10
-   trabalhadores, pode ser elaborado por profissional qualificado. **Vencido:** a NR-1 manda rever a
+   trabalhadores, pode ser elaborado por profissional qualificado em segurança do trabalho. **Vencido:** a NR-1 manda rever a
    avaliação de riscos a cada dois anos (até três anos para organização com certificação em sistema
    de gestão de SST), além das revisões por mudança. Use a data de revisão que o documento declara;
    se ele não declarar, conte dois anos a partir da emissão e registre que a revisão foi estimada.
@@ -43,8 +43,8 @@ confirmar** (quando a lista não traz informação suficiente).
    elabora o relatório analítico do programa anualmente. **Vencido:** relatório analítico com mais
    de um ano na data de referência, quando a lista trouxer a data dele; sem a data, marque a
    confirmar.
-3. **ART ou RRT de execução da obra.** A ART vem da Lei nº 6.496/1977 (engenharia) e o RRT da Lei
-   nº 12.378/2010 (arquitetura e urbanismo). A ART ou o RRT **de projeto** não substitui o de
+3. **ART ou RRT de execução da obra.** A ART é a da Lei nº 6.496/1977; para arquitetura e
+   urbanismo, o registro é o RRT da Lei nº 12.378/2010. A ART ou o RRT **de projeto** não substitui o de
    **execução**: sem o de execução, aponte como faltante.
 4. **Alvará de construção.** É emitido pelo município, conforme o código de obras local. **Vencido:**
    validade anterior à data de referência.
