@@ -6,6 +6,7 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ### Adicionadas
 
+- No repositório, fora do pacote: `.claude-plugin/marketplace.json`, o marketplace de plugins do Claude Code gerado do catálogo, com um plugin por skill fixado na tag da release (`/plugin marketplace add obraforge/obraforge`).
 - No repositório, fora do pacote: o site do catálogo em `dashboard/` (Astro estático), gerado do `catalog.json` e dos arquivos das skills, sem cookie, sem analytics e sem script de terceiro.
 
 ## [0.1.0] — 2026-09-21
