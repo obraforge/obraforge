@@ -1,0 +1,29 @@
+/* Tokens da direção "Prancha" (docs/design/guia-de-marca.md). Única fonte de cor, fonte e forma. */
+:root {
+  --paper: #ffffff;
+  --ink: #1c2127;
+  --ink-2: #4a5360;
+  --line: #d5dae1;
+  --grid: #edf1f6;
+  --accent: #1d4f91;
+  --accent-ink: #ffffff;
+  --notice-bg: #fff4d6;
+  --notice-ink: #5c4200;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f2a4a;
+    --ink: #e6eef8;
+    --ink-2: #b3c3d6;
+    --line: #2c4a70;
+    --grid: #173558;
+    --accent: #9cc7ff;
+    --accent-ink: #0f2a4a;
+    --notice-bg: #3a2e10;
+    --notice-ink: #ffe2a0;
+  }
+}

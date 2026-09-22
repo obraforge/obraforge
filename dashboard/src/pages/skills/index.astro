@@ -1,0 +1,42 @@
+---
+import SkillList from '../../components/SkillList.astro';
+import Base from '../../layouts/Base.astro';
+import { areasWithSkills, catalog } from '../../lib/catalog.js';
+
+const { skills, version } = catalog();
+const areas = areasWithSkills();
+const phases = [...new Set(skills.map((skill) => skill.phase))].sort();
+---
+<Base
+  title="Skills — obraforge"
+  description="Todas as Agent Skills do obraforge, por área e fase. Busque por orçamento, edital, PGR ou outro assunto de obra."
+  jsonLd={{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Skills' }] }}
+>
+  <h1 class="text-3xl font-semibold">Skills</h1>
+  <p class="mt-2 text-ink-2">{skills.length} skills na versão <span class="font-mono">{version}</span> do catálogo.</p>
+
+  <form class="mt-6 flex flex-wrap gap-4 items-end" hidden data-filtros>
+    <label class="flex flex-col gap-1 grow min-w-60">
+      <span class="text-sm text-ink-2">Buscar por assunto, como edital ou orçamento</span>
+      <input type="search" name="busca" class="min-h-11 px-3 border border-line bg-paper" autocomplete="off" />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-sm text-ink-2">Área</span>
+      <select name="area" class="min-h-11 px-3 border border-line bg-paper">
+        <option value="">Todas</option>
+        {areas.map((area) => <option value={area}>{area}</option>)}
+      </select>
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-sm text-ink-2">Fase</span>
+      <select name="fase" class="min-h-11 px-3 border border-line bg-paper">
+        <option value="">Todas</option>
+        {phases.map((phase) => <option value={String(phase)}>{phase}</option>)}
+      </select>
+    </label>
+  </form>
+
+  <div class="mt-6"><SkillList skills={skills} /></div>
+  <p class="mt-4 text-ink-2" hidden data-vazio>Nenhuma skill com esses filtros.</p>
+</Base>
+<script src="../../scripts/filter.ts"></script>

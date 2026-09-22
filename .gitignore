@@ -10,3 +10,6 @@ cli/catalog.json
 cli/skills/
 cli/README.md
 cli/LICENSE
+
+# Tipos gerados pelo Astro no build do site.
+dashboard/.astro/

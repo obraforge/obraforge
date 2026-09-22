@@ -1,0 +1,30 @@
+---
+import { installCommand, TOOLS, type Skill } from '../lib/catalog.js';
+
+interface Props {
+  skill: Skill;
+}
+const { skill } = Astro.props;
+---
+<section aria-labelledby="instalar" data-instalar>
+  <h2 id="instalar" class="text-xl font-semibold">Instalar</h2>
+  <div role="tablist" aria-label="Ferramenta" class="mt-3 flex flex-wrap gap-2" hidden data-abas>
+    {TOOLS.map((tool, index) => (
+      <button type="button" role="tab" id={`aba-${tool.id}`} aria-controls={`cmd-${tool.id}`} aria-selected={index === 0 ? 'true' : 'false'} data-aba={tool.id}
+        class="min-h-11 px-3 border border-line rounded aria-selected:border-accent aria-selected:text-accent">{tool.label}</button>
+    ))}
+  </div>
+  {TOOLS.map((tool) => (
+    <div id={`cmd-${tool.id}`} role="tabpanel" aria-labelledby={`aba-${tool.id}`} class="mt-3" data-painel={tool.id}>
+      <p class="text-sm text-ink-2" data-rotulo>{tool.label}</p>
+      <div class="mt-1 flex items-stretch border border-line">
+        <code class="flex-1 overflow-x-auto px-3 py-2 font-mono text-sm whitespace-nowrap" data-comando>{installCommand(skill, tool.id)}</code>
+        <button type="button" class="min-h-11 px-4 border-l border-line text-sm" hidden data-copiar>Copiar</button>
+      </div>
+    </div>
+  ))}
+  <p class="mt-3 text-sm text-ink-2">
+    Rode na pasta do projeto. Antes de gravar, a CLI confere o hash da skill contra o catálogo da versão.
+  </p>
+</section>
+<script src="../scripts/install.ts"></script>

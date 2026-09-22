@@ -1,0 +1,44 @@
+---
+import SkillList from '../components/SkillList.astro';
+import Base from '../layouts/Base.astro';
+import { catalog } from '../lib/catalog.js';
+
+const { skills, version } = catalog();
+const definition = 'O obraforge é o catálogo aberto de Agent Skills para arquitetura, engenharia e construção no Brasil.';
+---
+<Base
+  title="obraforge — Agent Skills para engenharia e construção"
+  description="Catálogo aberto de Agent Skills para arquitetura, engenharia e construção no Brasil. Instale com um comando no Claude Code, no Codex ou no Gemini CLI."
+  jsonLd={{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'obraforge', description: definition, inLanguage: 'pt-BR' }}
+>
+  <section class="max-w-3xl">
+    <h1 class="text-4xl font-semibold leading-tight">Agent Skills para engenharia e construção</h1>
+    <p class="mt-4 text-lg text-ink-2">
+      {definition} Cada skill ensina o seu agente de código a conferir, estruturar ou explicar uma tarefa de obra, com a norma citada e a fonte.
+    </p>
+    <p class="mt-6"><a href="/skills" class="inline-flex min-h-11 items-center px-4 border border-accent rounded no-underline">Ver as skills</a></p>
+  </section>
+
+  <section class="mt-12" aria-labelledby="nesta-versao">
+    <h2 id="nesta-versao" class="text-xl font-semibold">Nesta versão <span class="font-mono text-sm text-ink-2">v{version}</span></h2>
+    <div class="mt-4"><SkillList skills={skills} summary /></div>
+  </section>
+
+  <section class="mt-12 grid gap-8 md:grid-cols-[2fr_3fr]">
+    <div>
+      <h2 class="text-xl font-semibold">Como funciona</h2>
+      <ol class="mt-3 list-decimal pl-5 space-y-2">
+        <li>Escolha a skill e a ferramenta que você usa.</li>
+        <li>Rode o comando na pasta do seu projeto. A CLI confere o hash da skill antes de gravar.</li>
+        <li>Peça ao agente pelo assunto. Ele carrega a skill quando precisa.</li>
+      </ol>
+    </div>
+    <div class="border-l-4 border-line pl-4">
+      <h2 class="text-xl font-semibold">Por que confiar</h2>
+      <p class="mt-3">
+        Toda norma citada tem número, ano e fonte. Toda skill tem um caso de teste sintético e passa por um validador automático.
+        Nenhuma skill substitui o responsável técnico: ela confere, não assina.
+      </p>
+    </div>
+  </section>
+</Base>

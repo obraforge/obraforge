@@ -1,0 +1,22 @@
+---
+import SkillList from '../../components/SkillList.astro';
+import Base from '../../layouts/Base.astro';
+import { areasWithSkills, catalog } from '../../lib/catalog.js';
+
+export function getStaticPaths() {
+  return areasWithSkills().map((tag) => ({ params: { tag } }));
+}
+const { tag } = Astro.params;
+const skills = catalog().skills.filter((skill) => skill.area === tag);
+---
+<Base
+  title={`${tag} — obraforge`}
+  description={`Agent Skills do obraforge na área ${tag}.`}
+  jsonLd={{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Skills', item: '/skills' }, { '@type': 'ListItem', position: 2, name: tag }] }}
+>
+  <p class="font-mono text-xs uppercase tracking-wide text-ink-2">Área</p>
+  <h1 class="mt-1 text-3xl font-semibold">{tag}</h1>
+  <p class="mt-2 text-ink-2">{skills.length} skill(s) nesta área.</p>
+  <div class="mt-6"><SkillList skills={skills} /></div>
+  <p class="mt-6"><a href="/skills">Ver todas as skills</a></p>
+</Base>

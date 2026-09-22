@@ -1,0 +1,56 @@
+---
+import Base from '../layouts/Base.astro';
+import { REPO_URL } from '../lib/catalog.js';
+---
+<Base
+  title="Sobre — obraforge"
+  description="O que é o obraforge, o que ele não é, como a instalação é conferida e como contribuir."
+  jsonLd={{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Sobre' }] }}
+>
+  <article class="max-w-3xl space-y-10">
+    <section>
+      <h1 class="text-3xl font-semibold">Sobre</h1>
+      <p class="mt-4">
+        O obraforge é o catálogo aberto de Agent Skills para arquitetura, engenharia e construção no Brasil. Uma skill é uma pasta com um arquivo
+        <span class="font-mono">SKILL.md</span>: conhecimento de obra escrito como procedimento, que o seu agente de código carrega quando precisa. O obraforge
+        guarda, valida, cataloga e distribui essas pastas.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold">O que não é</h2>
+      <ul class="mt-3 list-disc pl-5 space-y-1">
+        <li>Não executa nada: quem executa é o seu agente, na sua assinatura.</li>
+        <li>Não tem conta, login, cobrança nem memória.</li>
+        <li>Não entrega o resultado final de engenharia: a skill confere, estrutura, explica ou dá modelo. O entregável continua sendo de quem assina.</li>
+        <li>Não depende de um modelo de IA específico.</li>
+      </ul>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold">Como a instalação é conferida</h2>
+      <p class="mt-3">
+        A CLI vem do npm com procedência verificável (provenance). Antes de gravar, ela confere o hash de cada skill contra o catálogo da mesma versão e recusa
+        se não bater. Ela não faz chamada de rede, não executa conteúdo da skill e só grava na pasta do seu agente. Para relatar uma vulnerabilidade, veja o
+        <a href={`${REPO_URL}/blob/main/SECURITY.md`} rel="noopener noreferrer">SECURITY.md</a>.
+      </p>
+    </section>
+    <section id="privacidade">
+      <h2 class="text-xl font-semibold">Privacidade</h2>
+      <p class="mt-3">
+        Este site não coleta dado pessoal, não usa cookie e não carrega script de terceiro. A hospedagem (Vercel) registra acessos no próprio servidor, como
+        qualquer hospedagem.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold">Contribuir</h2>
+      <p class="mt-3">
+        As skills são escritas por quem conhece a obra. Proponha uma skill abrindo uma issue no
+        <a href={`${REPO_URL}/issues`} rel="noopener noreferrer">GitHub</a>; o fluxo completo está no
+        <a href={`${REPO_URL}/blob/main/CONTRIBUTING.md`} rel="noopener noreferrer">CONTRIBUTING.md</a>.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold">Licença</h2>
+      <p class="mt-3">Código e skills sob a licença MIT.</p>
+    </section>
+  </article>
+</Base>
