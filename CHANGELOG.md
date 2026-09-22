@@ -4,6 +4,10 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ## [Não lançado]
 
+### Adicionadas
+
+- Skill `validar-planilha-orcamentaria` (área `orcamento`, versão 1.0.0): confere hierarquia da EAP, unidade e quantidade de cada item, unidade coerente com o serviço, totais e subtotais, e presença de BDI e de encargos sociais.
+
 ### Alteradas
 
 - `catalog.json` ganha, por skill, `state` (`publicada` ou `depreciada`) e `deprecationReason` quando depreciada, e no topo `retired`, com os nomes de `skills/retiradas.txt` ([ADR-0007](docs/adr/0007-estado-da-skill.md)).

@@ -27,5 +27,17 @@
     "contexto"
   ],
   "retired": [],
-  "skills": []
+  "skills": [
+    {
+      "name": "validar-planilha-orcamentaria",
+      "area": "orcamento",
+      "phase": 1,
+      "version": "1.0.0",
+      "state": "publicada",
+      "description": "Confere a estrutura de uma planilha orçamentária de obra — hierarquia da EAP, itens sem unidade ou quantidade, unidade incoerente com o serviço, totais que não fecham, ausência de BDI e de encargos sociais — e aponta cada problema com o item de origem. Use quando o usuário pedir para revisar, conferir ou validar um orçamento ou uma planilha de custos de obra.",
+      "references": [],
+      "path": "skills/orcamento/validar-planilha-orcamentaria",
+      "sha256": "7e7ed863fa019070befc14bc0749c8b376d151d44be4673be1ae6af99b17dc6d"
+    }
+  ]
 }
