@@ -11,7 +11,7 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 | --- | --- | --- |
 | A1 Esqueleto | ✅ camadas 1 e 2 | Clone limpo: `npm ci && npm run build && npm test` verde em Node 22.23.2 e 24.15.0. `npm ls --omit=dev --workspace cli` sem dependência. Vermelhos demonstrados, cada um isolado: caminho errado do `package.json` (ENOENT), área repetida, área com slug inválido. Secret scanning sem alerta: confere-se depois do primeiro push |
 | A2 Comunidade | 🟡 escrito, não publicado | Os dois critérios de pronto (perfil de comunidade pela API e relato de teste no PVR) dependem do push |
-| A3 Controles | 🟡 falta só o 2FA da org | Conferido pela API em 21/09/2026: secret scanning, push protection e PVR ligados; membros não criam repositório; permissão padrão só leitura; pinagem por SHA exigida na org; token padrão do Actions só leitura e Actions sem aprovar PR; aprovação de workflow para contribuidor novo; ruleset de tags `v*` só para admin da org ([ADR-0003](adr/0003-ruleset-de-tags-de-release.md), sem prova de recusa: não há conta sem papel de admin); **ruleset da `main` (D-012)** com os seis checks amarrados ao app do GitHub Actions. **Push direto em `main` recusado** em 21/09/2026 (`GH013: Changes must be made through a pull request`), mesmo vindo do admin. Falta o 2FA obrigatório na org (a REST não grava o campo; o dono liga pela interface) |
+| A3 Controles | ✅ camadas 2 e 3 | Conferido pela API em 21/09/2026: secret scanning, push protection e PVR ligados; membros não criam repositório; permissão padrão só leitura; pinagem por SHA exigida na org; token padrão do Actions só leitura e Actions sem aprovar PR; aprovação de workflow para contribuidor novo; ruleset de tags `v*` só para admin da org ([ADR-0003](adr/0003-ruleset-de-tags-de-release.md), sem prova de recusa: não há conta sem papel de admin); **ruleset da `main` (D-012)** com os seis checks amarrados ao app do GitHub Actions. **Push direto em `main` recusado** em 21/09/2026 (`GH013: Changes must be made through a pull request`), mesmo vindo do admin. **2FA obrigatório na org** ligado pelo dono pela interface e conferido pela API em 21/09/2026 (`two_factor_requirement_enabled: true`), com o dono já usando dois métodos de 2FA |
 | B1 Validador | ✅ camadas 1 e 2 | 137 testes verdes em Node 22.23.2 e 24.15.0. Um caso inválido por regra, cada um acusando **exatamente** o próprio código (os de `LINK` e `DADO-PESSOAL` são montados em tempo de teste, para nenhum CPF ou CNPJ com DV válido entrar no repositório público). `npm run validar` sobre `skills/` sai 0; sobre `invalida-NORMA` sai 1 com arquivo e linha. Vermelho demonstrado desligando `AGENCIA` (21 testes caem), `DADO-PESSOAL` (8) e `LINK` (7), só os da própria regra |
 | B2 Catálogo | ✅ camadas 1 e 2 | 149 testes verdes em Node 22.23.2 e 24.15.0: geração idêntica byte a byte, um byte alterado muda só o hash daquela skill, checkout com `core.autocrlf=true` entrega LF pelo `.gitattributes` (repositório git real no teste). `--verificar` sai 1 com diff quando o arquivo está desatualizado. Vermelho demonstrado trocando a ordenação por bytes pela comparação de string. PRs A, B e C do §10 simulados localmente com a cor esperada em cada comando |
 | C1 CLI mínima | ✅ camadas 1 e 2; camada 3 local | `--version`, `--help`, `list` com `util.parseArgs` e zero dependência. Tarball de `npm pack` com as 13 entradas da lista branca; o teste deriva o esperado de `cli/src` e falha se sobrar ou faltar arquivo, inclusive sobra obsoleta em `dist/src` (corrigido no gate: antes montava o esperado do disco). Instalado do tarball numa pasta vazia: `--version` imprime `0.0.1`, `list` imprime a frase de catálogo vazio. Node 20.20.2 real sai 3 com a versão mínima. Descrição de skill sanitizada antes do terminal (vermelho demonstrado). A camada 3 no npm é o C3 |
@@ -55,7 +55,7 @@ Evidência que não está aqui não conta (regra 6 do Roadmap). As camadas são 
 
 ## Pendências do dono
 
-1. **2FA obrigatório na org**, pela interface (Settings → Authentication security).
+Nenhuma.
 
 Resolvidas em 21/09/2026: o código de conduta fica no Contributor Covenant 3.0 em inglês, com
 contato `obraforge+contato@gmail.com` (caixa dedicada do projeto, fora do login de GitHub e npm);
@@ -81,21 +81,25 @@ as actions de terceiros dos workflows estão autorizadas, com o `osv` rodando a 
 - Fora de um terminal, o `node --test` imprime TAP no Node 22 (`# pass`) e o formato spec no
   Node 24 (`ℹ pass`). Quem filtrar a saída precisa considerar os dois.
 
-## Para destravar o GitHub (checkpoint de 21/09/2026)
+## Fechamento da fase 0 — 21/09/2026
 
-1. Autorização do push (o contato do código de conduta e as actions já estão resolvidos).
-2. Depois do push: conferir os nomes reais dos checks e então o A3 (2FA da org com os dois
-   métodos do dono conferidos antes, membros sem criar repositório, ruleset da `main` da D-012,
-   Actions com token só leitura). O ruleset de tags `v*` já existe (ADR-0003).
-3. C2 pelo dono; data da `0.0.1` no CHANGELOG; tag `v0.0.1`; PRs de demonstração do §10.
+**Fase 0 fechada.** O marco do plano está cumprido e evidenciado acima: um PR com skill válida
+fica verde e um com skill inválida fica vermelho no CI, e `npx obraforge@0.0.1 --version` funciona a
+partir de uma release publicada no npm com provenance. Os 9 itens do teste do §10 estão cumpridos,
+os controles do A3 estão todos ligados, e o gate adversarial terminou com os achados confirmados
+corrigidos ou aceitos por escrito no [ADR-0006](adr/0006-endurecimento-do-validador.md).
 
-## Como abrir a sessão 2
+## Como abrir a fase 1 (MVP)
 
-- Itens C1, D1, A3, D2, C2, C3 e o teste do §10, na ordem do §14 do plano, com a calibração de
-  lá (Opus em high para A3, C3 e o gate do §10).
-- **Empacotamento (resolvido no C1):** `cli/scripts/prepack.mjs` copia `catalog.json`, `skills/`,
-  `README.md` e `LICENSE` da raiz para `cli/` antes de `npm pack`/`npm publish`, e falha se achar
-  link simbólico em `skills/`.
-- O C2 é do dono: o agente guia e nunca vê credencial do npm. Exige npm 11.15.0 ou superior
-  (local hoje: 11.12.1; o npm 12 já existe, conferir antes de atualizar).
-- Passar pela classificação de superfície de risco antes de cada fatia.
+- Marco (Roadmap): cada uma das três skills exercitada com a própria fixture em Claude Code, Codex e
+  Gemini CLI, com o resultado registrado no repositório, e `npx obraforge add` funcionando numa
+  pasta limpa.
+- Itens: `validar-planilha-orcamentaria`, `checklist-edital` e `revisar-conformidade-documental`;
+  CLI `list`, `add --for`, `search` e modo interativo; dashboard Astro na Vercel; `.claude-plugin/`.
+- Decisões que abrem a fase, antes do primeiro `add`:
+  1. onde vive o estado depreciada/retirada de uma skill (§11 do plano, "o que este plano não
+     resolve");
+  2. como tratar conteúdo de fixture binária (PDF e planilha não são varridos; ADR-0006), antes da
+     primeira skill com fixture de planilha.
+- Toda mudança entra por PR na `main` protegida (D-012); cada fatia passa antes pela classificação de
+  superfície de risco.
