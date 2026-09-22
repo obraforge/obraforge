@@ -13,7 +13,7 @@
         "source": "git-subdir",
         "url": "https://github.com/obraforge/obraforge.git",
         "path": "skills/orcamento/validar-planilha-orcamentaria",
-        "ref": "v0.1.0"
+        "ref": "v0.1.1"
       },
       "strict": false
     },
@@ -25,7 +25,7 @@
         "source": "git-subdir",
         "url": "https://github.com/obraforge/obraforge.git",
         "path": "skills/licitacao/checklist-edital",
-        "ref": "v0.1.0"
+        "ref": "v0.1.1"
       },
       "strict": false
     },
@@ -37,7 +37,7 @@
         "source": "git-subdir",
         "url": "https://github.com/obraforge/obraforge.git",
         "path": "skills/sst/revisar-conformidade-documental",
-        "ref": "v0.1.0"
+        "ref": "v0.1.1"
       },
       "strict": false
     }

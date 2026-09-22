@@ -4,6 +4,8 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ## [Não lançado]
 
+## [0.1.1] — 2026-09-22
+
 Correções do gate da fase 1 (G1), com as três lentes adversariais registradas em `docs/fase-1.md`.
 
 ### Alteradas
