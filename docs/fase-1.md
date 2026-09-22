@@ -13,8 +13,8 @@ anotadas.
 
 | Bloco | Itens | Estimado | Início | Fim | Real | Observação |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | A1, S1 | 2–3,5 h | 21/09/2026 22:48 | | | |
-| 2 | S2, S3 | 2–4 h | | | | |
+| 1 | A1, S1 | 2–3,5 h | 21/09/2026 22:48 | 21/09/2026 23:04 | 16 min | Sem espera pelo dono. Inclui dois PRs mergeados e o exercício da S1 no Claude Code |
+| 2 | S2, S3 | 2–4 h | 21/09/2026 23:04 | | | |
 | 3 | C1, C2 | 2,5–4 h | | | | |
 | 4 | C3, V1 | 1,5–3 h | | | | |
 | 5 | W1, W2 | 3–5 h | | | | |
@@ -24,9 +24,9 @@ anotadas.
 
 | Item | Estado | Evidência |
 | --- | --- | --- |
-| A1 Abertura | 🟡 em PR | ADRs [0007](adr/0007-estado-da-skill.md), [0008](adr/0008-fixture-so-em-texto.md) e [0009](adr/0009-vercel-hobby-e-integracao-com-o-git.md). Validador: `obraforge-estado` e `obraforge-motivo` na lista branca do `metadata`, com as regras de par; binário em `fixtures/` falha com `ESTRUTURA`. Catálogo: `state`, `deprecationReason` e `retired`. Vermelho visto antes do conserto: 13 testes caíram pelo motivo certo, mais 4 de mensagem que acusavam a chave fora da lista em vez da regra nova. 857 testes no `tools` e 26 na `cli` |
-| S1 `validar-planilha-orcamentaria` | 🟡 em PR | Fixture CSV com os seis erros do exemplo da spec e duas armadilhas que não são erro (arredondamento no 6.2, encargos declarados). Exercício de escrita no Claude Code 2.1.258 em 21/09/2026, sem interação, com pedido que não cita a skill: os seis apontados, nenhum falso positivo, total geral tratado como herança do subtotal 3, aviso presente. Normas: nenhuma citada, o que o `normas.md` declara |
-| S2 | ⬜ | |
+| A1 Abertura | ✅ camadas 1 e 2 ([#14](https://github.com/obraforge/obraforge/pull/14)) | ADRs [0007](adr/0007-estado-da-skill.md), [0008](adr/0008-fixture-so-em-texto.md) e [0009](adr/0009-vercel-hobby-e-integracao-com-o-git.md). Validador: `obraforge-estado` e `obraforge-motivo` na lista branca do `metadata`, com as regras de par; binário em `fixtures/` falha com `ESTRUTURA`. Catálogo: `state`, `deprecationReason` e `retired`. Vermelho visto antes do conserto: 13 testes caíram pelo motivo certo, mais 4 de mensagem que acusavam a chave fora da lista em vez da regra nova. 857 testes no `tools` e 26 na `cli` |
+| S1 `validar-planilha-orcamentaria` | ✅ mergeada ([#15](https://github.com/obraforge/obraforge/pull/15)); revisão de domínio pendente (P3) | Fixture CSV com os seis erros do exemplo da spec e duas armadilhas que não são erro (arredondamento no 6.2, encargos declarados). Exercício de escrita no Claude Code 2.1.258 em 21/09/2026, sem interação, com pedido que não cita a skill: os seis apontados, nenhum falso positivo, total geral tratado como herança do subtotal 3, aviso presente. Normas: nenhuma citada, o que o `normas.md` declara |
+| S2 `checklist-edital` | 🟡 em PR | Fixture Markdown: edital sintético com exigências espalhadas (declarações nas condições de participação, na visita técnica e nas disposições gerais), uma atípica (sede ou filial no município, cláusula 8.1) e três armadilhas dentro do limite da lei (atestado de 50% da área, garantia de 1%, índices de 1,0). Artigos da Lei nº 14.133/2021 conferidos no texto compilado do Planalto em 21/09/2026. Exercício de escrita no Claude Code em 21/09/2026: todos os itens com a cláusula, a 8.1 sinalizada com o art. 9º, I, "b", nenhuma armadilha sinalizada, aviso presente |
 | S3 | ⬜ | |
 | C1 | ⬜ | |
 | C2 | ⬜ | |

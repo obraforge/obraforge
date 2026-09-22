@@ -6,6 +6,7 @@ Este arquivo lista as mudanças de cada release do obraforge. Cada versão tem a
 
 ### Adicionadas
 
+- Skill `checklist-edital` (área `licitacao`, versão 1.0.0): extrai do edital de obra os itens de habilitação, as declarações e as exigências da proposta, com a cláusula de origem, conforme a Lei nº 14.133/2021, e sinaliza exigência atípica.
 - Skill `validar-planilha-orcamentaria` (área `orcamento`, versão 1.0.0): confere hierarquia da EAP, unidade e quantidade de cada item, unidade coerente com o serviço, totais e subtotais, e presença de BDI e de encargos sociais.
 
 ### Alteradas
