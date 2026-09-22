@@ -25,7 +25,7 @@ anotadas.
 | Item | Estado | Evidência |
 | --- | --- | --- |
 | A1 Abertura | 🟡 em PR | ADRs [0007](adr/0007-estado-da-skill.md), [0008](adr/0008-fixture-so-em-texto.md) e [0009](adr/0009-vercel-hobby-e-integracao-com-o-git.md). Validador: `obraforge-estado` e `obraforge-motivo` na lista branca do `metadata`, com as regras de par; binário em `fixtures/` falha com `ESTRUTURA`. Catálogo: `state`, `deprecationReason` e `retired`. Vermelho visto antes do conserto: 13 testes caíram pelo motivo certo, mais 4 de mensagem que acusavam a chave fora da lista em vez da regra nova. 857 testes no `tools` e 26 na `cli` |
-| S1 | ⬜ | |
+| S1 `validar-planilha-orcamentaria` | 🟡 em PR | Fixture CSV com os seis erros do exemplo da spec e duas armadilhas que não são erro (arredondamento no 6.2, encargos declarados). Exercício de escrita no Claude Code 2.1.258 em 21/09/2026, sem interação, com pedido que não cita a skill: os seis apontados, nenhum falso positivo, total geral tratado como herança do subtotal 3, aviso presente. Normas: nenhuma citada, o que o `normas.md` declara |
 | S2 | ⬜ | |
 | S3 | ⬜ | |
 | C1 | ⬜ | |
