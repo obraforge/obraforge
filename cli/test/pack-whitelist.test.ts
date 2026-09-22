@@ -30,6 +30,8 @@ test('npm pack leva exatamente a lista branca: nada de dist/test, scripts, tscon
     cwd: ROOT_DIR,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    // No Windows, npm é um script .cmd, que só roda por um shell.
+    shell: process.platform === 'win32',
   });
   const [report] = JSON.parse(stdout) as Array<{ files: Array<{ path: string }> }>;
   assert.ok(report, 'npm pack --dry-run --json não retornou nenhum pacote');

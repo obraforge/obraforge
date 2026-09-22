@@ -72,6 +72,26 @@ jobs:
       - name: Build e testes (o teste do cli já faz npm pack + instalação do tarball)
         run: npm run build && npm test
 
+  # A CLI grava no disco do usuário, e boa parte dos engenheiros usa Windows (plano da fase 1, C1).
+  # Fora da lista de checks obrigatórios do ruleset até o dono decidir (pendência P5).
+  testes-windows:
+    name: testes (windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Build e testes da CLI
+        run: npm run build && npm test --workspace cli
+
   build:
     name: build
     runs-on: ubuntu-latest
