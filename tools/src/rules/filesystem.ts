@@ -1,5 +1,5 @@
 // Regras sobre a árvore de arquivos: ESTRUTURA (arquivos obrigatórios), SCRIPTS e LINK.
-import { CODE_EXTENSIONS, PROJECT_PHASE } from '../constants.js';
+import { BINARY_EXTENSIONS, CODE_EXTENSIONS, PROJECT_PHASE } from '../constants.js';
 import type { Finding } from '../findings.js';
 import { extensionOf, type Entry } from '../tree.js';
 
@@ -55,6 +55,11 @@ export function checkStructure(skillDir: string, entries: ReadonlyMap<string, En
     }
     if (INVISIBLE_IN_NAME.test(name)) {
       findings.push({ code: 'ESTRUTURA', file: `${skillDir}/${entry.path}`, message: 'nome de arquivo com caractere invisível' });
+    }
+    // Fixture só em texto (ADR-0008): binário não é varrido por DADO-PESSOAL, e a fixture é onde o
+    // dado real de cliente entraria. Fora de fixtures/ (ex.: assets/) a lista branca continua valendo.
+    if (entry.kind === 'file' && entry.path.startsWith('fixtures/') && BINARY_EXTENSIONS.includes(extensionOf(entry.path))) {
+      findings.push({ code: 'ESTRUTURA', file: `${skillDir}/${entry.path}`, message: 'arquivo binário em fixtures/: a fixture é só texto (ADR-0008)' });
     }
   }
   return findings;

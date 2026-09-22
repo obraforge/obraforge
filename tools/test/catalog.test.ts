@@ -299,10 +299,10 @@ test('caminho do arquivo no hash é normalizado em NFC: nome criado em NFD e em 
 });
 
 test('formatCatalogJson termina com exatamente um "\\n" e usa indentação de 2 espaços', () => {
-  const json = formatCatalogJson({ version: '1.0.0', areas: ['contexto'], skills: [] });
+  const json = formatCatalogJson({ version: '1.0.0', areas: ['contexto'], retired: [], skills: [] });
   assert.ok(json.endsWith('\n'), 'deveria terminar com \\n');
   assert.ok(!json.endsWith('\n\n'), 'deveria terminar com exatamente um \\n');
-  assert.equal(json, '{\n  "version": "1.0.0",\n  "areas": [\n    "contexto"\n  ],\n  "skills": []\n}\n');
+  assert.equal(json, '{\n  "version": "1.0.0",\n  "areas": [\n    "contexto"\n  ],\n  "retired": [],\n  "skills": []\n}\n');
 });
 
 test('catalog.json commitado na raiz termina com "\\n"', async () => {
@@ -328,4 +328,67 @@ test('campo necessário ausente no metadata faz o gerador falhar com mensagem', 
     assert.match(error.message, /obraforge-fase/);
     return true;
   });
+});
+
+async function writeSkillWithMetadata(skillsRoot: string, area: string, name: string, extraMetadata: readonly string[]): Promise<void> {
+  const dir = join(skillsRoot, area, name);
+  await mkdir(dir, { recursive: true });
+  const lines = skillMd(area, name).split('\n');
+  const versionLine = lines.indexOf('  obraforge-versao: "1.0.0"');
+  lines.splice(versionLine + 1, 0, ...extraMetadata);
+  await writeFile(join(dir, 'SKILL.md'), lines.join('\n'));
+}
+
+test('skill sem estado entra como publicada, sem deprecationReason', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  await writeSkill(skillsRoot, 'contexto', 'exemplo-publicada');
+  const catalog = await buildCatalog(skillsRoot, await writePackage(root, '9.9.9'));
+  assert.equal(catalog.skills[0]?.state, 'publicada');
+  assert.equal(Object.hasOwn(catalog.skills[0] ?? {}, 'deprecationReason'), false);
+});
+
+test('skill depreciada entra com state e deprecationReason', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  await writeSkillWithMetadata(skillsRoot, 'contexto', 'exemplo-depreciada', ['  obraforge-estado: "depreciada"', '  obraforge-motivo: "Norma revogada."']);
+  const catalog = await buildCatalog(skillsRoot, await writePackage(root, '9.9.9'));
+  assert.equal(catalog.skills[0]?.state, 'depreciada');
+  assert.equal(catalog.skills[0]?.deprecationReason, 'Norma revogada.');
+});
+
+test('estado desconhecido faz o gerador falhar (nunca vira publicada calado)', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  await writeSkillWithMetadata(skillsRoot, 'contexto', 'exemplo-estranho', ['  obraforge-estado: "suspensa"']);
+  await assert.rejects(buildCatalog(skillsRoot, await writePackage(root, '9.9.9')), (error: unknown) => {
+    assert.ok(error instanceof CatalogBuildError);
+    assert.match(error.message, /obraforge-estado/);
+    return true;
+  });
+});
+
+test('depreciada sem motivo faz o gerador falhar', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  await writeSkillWithMetadata(skillsRoot, 'contexto', 'exemplo-sem-motivo', ['  obraforge-estado: "depreciada"']);
+  await assert.rejects(buildCatalog(skillsRoot, await writePackage(root, '9.9.9')), /obraforge-motivo/);
+});
+
+test('retired traz os nomes de skills/retiradas.txt, ordenados, sem comentário nem linha vazia', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  await mkdir(skillsRoot, { recursive: true });
+  await writeFile(join(skillsRoot, 'retiradas.txt'), '# lista append-only\nskill-zeta\n\nskill-alfa\n');
+  const catalog = await buildCatalog(skillsRoot, await writePackage(root, '9.9.9'));
+  assert.deepEqual(catalog.retired, ['skill-alfa', 'skill-zeta']);
+  assert.deepEqual(Object.keys(catalog), ['version', 'areas', 'retired', 'skills']);
+});
+
+test('sem skills/retiradas.txt, retired é lista vazia', async () => {
+  const root = await makeTempDir();
+  const skillsRoot = join(root, 'skills');
+  await mkdir(skillsRoot, { recursive: true });
+  const catalog = await buildCatalog(skillsRoot, await writePackage(root, '9.9.9'));
+  assert.deepEqual(catalog.retired, []);
 });

@@ -13,6 +13,8 @@ Como usar este template:
   área é igual a obraforge-area (uma das áreas da lista fechada).
 - Os valores do metadata vão entre aspas.
 - Toda norma citada neste arquivo tem entrada em references/normas.md.
+- A fixture é só texto: planilha em CSV, edital ou lista em Markdown (binário em fixtures/ é
+  recusado).
 - A skill só dá instrução: não pede ao agente para instalar nada, mudar configuração nem acessar a
   internet.
 - Mantenha o aviso do fim sem nenhuma alteração.

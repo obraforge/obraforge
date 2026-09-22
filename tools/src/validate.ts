@@ -9,13 +9,12 @@ import { checkLinks, checkScripts, checkStructure } from './rules/filesystem.js'
 import { checkDescription, checkMetadata, checkName, checkOptionalFields } from './rules/frontmatter-fields.js';
 import { checkNorms } from './rules/norms.js';
 import { scanPersonalData } from './rules/personal-data.js';
+import { readRetired } from './retired.js';
 import { splitLines } from './text.js';
-import { extensionOf, readSkillFile, readText, walkTree, type Entry } from './tree.js';
+import { extensionOf, readSkillFile, walkTree, type Entry } from './tree.js';
 
 export type { Finding, RuleCode } from './findings.js';
 export { RULE_CODES } from './findings.js';
-
-const RETIRED_FILE = 'retiradas.txt';
 
 // Valida uma raiz de skills no formato <raiz>/<area>/<nome>/. Devolve os achados ordenados por
 // arquivo e linha; lista vazia significa que tudo passou. Erro inesperado sobe como exceção.
@@ -46,26 +45,6 @@ export async function validateSkillsRoot(rootArg: string): Promise<Finding[]> {
     }
   }
   return findings.sort(compareFindings);
-}
-
-// Arquivos na raiz (README.md, retiradas.txt) não são skill e não passam pelas regras de conteúdo.
-async function readRetired(root: string, entries: readonly Entry[]): Promise<Set<string>> {
-  const entry = entries.find((item) => item.path === RETIRED_FILE);
-  // Ausente é lista vazia; link simbólico já é acusado por LINK e não é lido.
-  if (entry === undefined || entry.kind === 'symlink') {
-    return new Set();
-  }
-  if (entry.kind !== 'file') {
-    throw new Error(`${RETIRED_FILE} não é arquivo regular`);
-  }
-  const text = await readText(join(root, RETIRED_FILE));
-  if (text === null) {
-    throw new Error(`${RETIRED_FILE} não é arquivo de texto`);
-  }
-  const names = splitLines(text)
-    .map((line) => line.trim())
-    .filter((line) => line !== '' && !line.startsWith('#'));
-  return new Set(names);
 }
 
 async function validateSkill(
