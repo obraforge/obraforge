@@ -51,6 +51,23 @@
       ],
       "path": "skills/licitacao/checklist-edital",
       "sha256": "aae49dd86fa5fa3284bc7c393b53f34593a01f671e3e6053db627e7f49f84228"
+    },
+    {
+      "name": "revisar-conformidade-documental",
+      "area": "sst",
+      "phase": 1,
+      "version": "1.0.0",
+      "state": "publicada",
+      "description": "Confere a lista de documentos de uma obra contra um checklist genérico (PGR, PCMSO, ART ou RRT de execução, alvará de construção, memorial descritivo e projeto aprovado), com a NR ou a lei de cada um, e aponta o que falta e o que está vencido numa data de referência. Use quando o usuário pedir para revisar, auditar ou conferir a documentação legal ou de segurança de uma obra.",
+      "references": [
+        "NR-1",
+        "NR-7",
+        "NR-18",
+        "Lei 6496",
+        "Lei 12378"
+      ],
+      "path": "skills/sst/revisar-conformidade-documental",
+      "sha256": "16c83791ca30bab93a340c67e2013f74f60183efa5815a966a44cf6e315ae8f2"
     }
   ]
 }
